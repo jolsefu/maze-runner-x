@@ -97,6 +97,7 @@ class Player:
 
 def draw_maze(screen, maze, tile_size):
     """Draw the maze on screen using sprites"""
+
     for y, row in enumerate(maze):
         for x, cell in enumerate(row):
             rect = pygame.Rect(x * tile_size, y * tile_size, tile_size, tile_size)
@@ -135,6 +136,7 @@ def draw_maze(screen, maze, tile_size):
 
 def draw_ui(screen, width, height, moves, won=False):
     """Draw UI information"""
+
     font = pygame.font.Font(None, 36)
     ui_y = height - 45
 
