@@ -7,13 +7,18 @@ from maze_generation import generate_maze, create_simple_maze
 pygame.init()
 
 # Constants
-SCREEN_WIDTH = 1000
-SCREEN_HEIGHT = 895
-UI_HEIGHT = 72  # Height reserved for UI at bottom
+# UI Panel Configuration (Right Side)
+UI_WIDTH = 465  # Width of the right-hand UI panel
+UI_HEIGHT = 830  # Height of the right-hand UI panel
 
+# Maze Configuration (Left Side)
 TILE_SIZE = 16  # 16x16 tiles to match sprite size
-MAZE_WIDTH = SCREEN_WIDTH // TILE_SIZE  # Calculate maze width to fill screen (120 tiles)
-MAZE_HEIGHT = (SCREEN_HEIGHT - UI_HEIGHT) // TILE_SIZE  # Calculate maze height to fill available space
+MAZE_WIDTH_PX = 1000  # Width in pixels for the maze area
+MAZE_HEIGHT_PX = UI_HEIGHT  # Height in pixels for the maze area (matches UI height)
+
+# Calculate maze dimensions in tiles
+MAZE_WIDTH = MAZE_WIDTH_PX // TILE_SIZE  # Calculate maze width in tiles
+MAZE_HEIGHT = MAZE_HEIGHT_PX // TILE_SIZE  # Calculate maze height in tiles
 
 # Make sure dimensions are odd for better maze generation
 if MAZE_WIDTH % 2 == 0:
@@ -21,8 +26,13 @@ if MAZE_WIDTH % 2 == 0:
 if MAZE_HEIGHT % 2 == 0:
     MAZE_HEIGHT -= 1
 
-# Actual maze display area - this is the exact pixel height the maze occupies
+# Actual maze display area (after adjusting for odd dimensions)
+MAZE_DISPLAY_WIDTH = MAZE_WIDTH * TILE_SIZE
 MAZE_DISPLAY_HEIGHT = MAZE_HEIGHT * TILE_SIZE
+
+# Total window dimensions
+TOTAL_WINDOW_WIDTH = MAZE_DISPLAY_WIDTH + UI_WIDTH
+TOTAL_WINDOW_HEIGHT = max(MAZE_DISPLAY_HEIGHT, UI_HEIGHT)  # Use the larger of the two
 
 # Colors
 BLACK = (0, 0, 0)
@@ -35,7 +45,7 @@ YELLOW = (255, 255, 100)
 DARK_GREEN = (0, 100, 0)
 
 # Setup screen
-screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
+screen = pygame.display.set_mode((TOTAL_WINDOW_WIDTH, TOTAL_WINDOW_HEIGHT))
 pygame.display.set_caption("Maze Runner - Navigate to the Goal!")
 clock = pygame.time.Clock()
 
@@ -146,30 +156,65 @@ def draw_maze(screen, maze, tile_size):
 
 
 def draw_ui(screen, width, height, moves, won=False):
-    """Draw UI information"""
+    """Draw UI information on the right side"""
+    font_title = pygame.font.Font(None, 48)
+    font_text = pygame.font.Font(None, 36)
 
-    font = pygame.font.Font(None, 36)
+    # UI starts after the maze display area (right side)
+    ui_x_start = MAZE_DISPLAY_WIDTH
+    ui_padding = 40
 
-    # UI starts after the maze display area
-    ui_y_start = MAZE_DISPLAY_HEIGHT
-    ui_y_center = ui_y_start + UI_HEIGHT // 2 - 18  # Center text vertically in UI area
-
-    # Background for UI
-    ui_rect = pygame.Rect(0, ui_y_start, width, UI_HEIGHT)
+    # Background for UI (right side panel)
+    ui_rect = pygame.Rect(ui_x_start, 0, UI_WIDTH, height)
     pygame.draw.rect(screen, (30, 30, 30), ui_rect)
 
-    # Moves counter
-    moves_text = font.render(f"Moves: {moves}", True, WHITE)
-    screen.blit(moves_text, (10, ui_y_center))
+    # Draw a separator line
+    pygame.draw.line(screen, WHITE, (ui_x_start, 0), (ui_x_start, height), 2)
 
-    # Instructions or win message
+    # Title
+    y_pos = 50
+    title_text = font_title.render("MAZE RUNNER", True, YELLOW)
+    title_rect = title_text.get_rect(centerx=ui_x_start + UI_WIDTH // 2, y=y_pos)
+    screen.blit(title_text, title_rect)
+
+    # Moves counter
+    y_pos += 100
+    moves_label = font_text.render("Moves:", True, WHITE)
+    moves_label_rect = moves_label.get_rect(centerx=ui_x_start + UI_WIDTH // 2, y=y_pos)
+    screen.blit(moves_label, moves_label_rect)
+
+    y_pos += 50
+    moves_text = font_title.render(str(moves), True, GREEN)
+    moves_rect = moves_text.get_rect(centerx=ui_x_start + UI_WIDTH // 2, y=y_pos)
+    screen.blit(moves_text, moves_rect)
+
+    # Win message or instructions
+    y_pos += 150
     if won:
-        win_text = font.render("YOU WIN! Press R to restart", True, YELLOW)
-        screen.blit(win_text, (width // 2 - 200, ui_y_center))
+        win_text = font_title.render("YOU WIN!", True, YELLOW)
+        win_rect = win_text.get_rect(centerx=ui_x_start + UI_WIDTH // 2, y=y_pos)
+        screen.blit(win_text, win_rect)
+
+        y_pos += 70
+        restart_text = font_text.render("Press R to restart", True, WHITE)
+        restart_rect = restart_text.get_rect(centerx=ui_x_start + UI_WIDTH // 2, y=y_pos)
+        screen.blit(restart_text, restart_rect)
     else:
-        help_text = font.render("WASD/Arrows to move | R: New Maze", True, WHITE)
-        text_rect = help_text.get_rect(right=width - 10, centery=ui_y_center + 18)
-        screen.blit(help_text, text_rect)
+        # Controls
+        controls_title = font_text.render("Controls:", True, WHITE)
+        controls_rect = controls_title.get_rect(centerx=ui_x_start + UI_WIDTH // 2, y=y_pos)
+        screen.blit(controls_title, controls_rect)
+
+        y_pos += 50
+        controls = [
+            "WASD or Arrow Keys - Move",
+            "R - New Random Maze"
+        ]
+        for control in controls:
+            control_text = font_text.render(control, True, WHITE)
+            control_rect = control_text.get_rect(centerx=ui_x_start + UI_WIDTH // 2, y=y_pos)
+            screen.blit(control_text, control_rect)
+            y_pos += 40
 
 
 def find_start_position(maze):
@@ -221,10 +266,11 @@ def loop(maze, player, moves, won):
         draw_maze(screen, maze, TILE_SIZE)
 
         # Draw player
+        # Draw player
         player.draw(screen)
 
         # Draw UI
-        draw_ui(screen, SCREEN_WIDTH, SCREEN_HEIGHT, moves, won)
+        draw_ui(screen, TOTAL_WINDOW_WIDTH, TOTAL_WINDOW_HEIGHT, moves, won)
 
         # Handle events
         for event in pygame.event.get():
