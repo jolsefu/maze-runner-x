@@ -7,11 +7,22 @@ from maze_generation import generate_maze, create_simple_maze
 pygame.init()
 
 # Constants
+SCREEN_WIDTH = 1000
+SCREEN_HEIGHT = 895
+UI_HEIGHT = 72  # Height reserved for UI at bottom
+
 TILE_SIZE = 16  # 16x16 tiles to match sprite size
-MAZE_WIDTH = 25  # Width in tiles (use odd numbers) - increased for 16px tiles
-MAZE_HEIGHT = 25  # Height in tiles (use odd numbers) - increased for 16px tiles
-SCREEN_WIDTH = MAZE_WIDTH * TILE_SIZE
-SCREEN_HEIGHT = MAZE_HEIGHT * TILE_SIZE + 50  # Extra space for UI
+MAZE_WIDTH = SCREEN_WIDTH // TILE_SIZE  # Calculate maze width to fill screen (120 tiles)
+MAZE_HEIGHT = (SCREEN_HEIGHT - UI_HEIGHT) // TILE_SIZE  # Calculate maze height to fill available space
+
+# Make sure dimensions are odd for better maze generation
+if MAZE_WIDTH % 2 == 0:
+    MAZE_WIDTH -= 1
+if MAZE_HEIGHT % 2 == 0:
+    MAZE_HEIGHT -= 1
+
+# Actual maze display area - this is the exact pixel height the maze occupies
+MAZE_DISPLAY_HEIGHT = MAZE_HEIGHT * TILE_SIZE
 
 # Colors
 BLACK = (0, 0, 0)
@@ -138,23 +149,26 @@ def draw_ui(screen, width, height, moves, won=False):
     """Draw UI information"""
 
     font = pygame.font.Font(None, 36)
-    ui_y = height - 45
+
+    # UI starts after the maze display area
+    ui_y_start = MAZE_DISPLAY_HEIGHT
+    ui_y_center = ui_y_start + UI_HEIGHT // 2 - 18  # Center text vertically in UI area
 
     # Background for UI
-    ui_rect = pygame.Rect(0, height - 50, width, 50)
+    ui_rect = pygame.Rect(0, ui_y_start, width, UI_HEIGHT)
     pygame.draw.rect(screen, (30, 30, 30), ui_rect)
 
     # Moves counter
     moves_text = font.render(f"Moves: {moves}", True, WHITE)
-    screen.blit(moves_text, (10, ui_y))
+    screen.blit(moves_text, (10, ui_y_center))
 
     # Instructions or win message
     if won:
         win_text = font.render("YOU WIN! Press R to restart", True, YELLOW)
-        screen.blit(win_text, (width // 2 - 200, ui_y))
+        screen.blit(win_text, (width // 2 - 200, ui_y_center))
     else:
         help_text = font.render("WASD/Arrows to move | R: New Maze", True, WHITE)
-        text_rect = help_text.get_rect(right=width - 10, centery=ui_y + 18)
+        text_rect = help_text.get_rect(right=width - 10, centery=ui_y_center + 18)
         screen.blit(help_text, text_rect)
 
 
