@@ -1,3 +1,3 @@
 source pyvenv/bin/activate
 
-python main.py
+python menu.py
