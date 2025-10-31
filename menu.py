@@ -125,12 +125,6 @@ def draw_controls_screen(screen):
         else:
             y_pos += 20
 
-    # Back instruction
-    back_text = text_font.render("Press ESC or click Back to return", True, GRAY)
-    back_rect = back_text.get_rect(center=(MENU_WIDTH // 2, MENU_HEIGHT - 100))
-    screen.blit(back_text, back_rect)
-
-
 def show_menu():
     """Display the main menu and handle user input"""
     # Create buttons
