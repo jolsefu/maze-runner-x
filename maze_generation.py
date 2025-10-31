@@ -67,19 +67,75 @@ class MazeGenerator:
         return self.maze
 
     def _add_terrain_variety(self):
-        """Add different terrain types to path tiles"""
+        """Add different terrain types to path tiles, ensuring goal is reachable"""
+        # First pass: add water and mud (these don't block paths)
         for y in range(1, self.height - 1):
             for x in range(1, self.width - 1):
                 if self.maze[y][x] == TERRAIN_GRASS:
-                    # Randomly assign terrain types
                     rand = random.random()
-                    if rand < 0.15:  # 15% water
+                    if rand < 0.20:  # 20% water
                         self.maze[y][x] = TERRAIN_WATER
-                    elif rand < 0.25:  # 10% mud
+                    elif rand < 0.35:  # 15% mud
                         self.maze[y][x] = TERRAIN_MUD
-                    elif rand < 0.28:  # 3% lava (rare, creates obstacles)
+
+        # Second pass: carefully add lava only where it won't block the path
+        # We'll add lava to dead-end paths or where there are alternative routes
+        for y in range(1, self.height - 1):
+            for x in range(1, self.width - 1):
+                if self.maze[y][x] == TERRAIN_GRASS:
+                    # Only consider adding lava with low probability
+                    if random.random() < 0.05:  # 5% chance
+                        # Temporarily place lava
                         self.maze[y][x] = TERRAIN_LAVA
-                    # else: remains grass (72%)
+                        # Check if goal is still reachable
+                        if not self._is_goal_reachable():
+                            # If not reachable, revert to grass
+                            self.maze[y][x] = TERRAIN_GRASS
+
+    def _is_goal_reachable(self):
+        """Check if the goal is reachable from start using BFS"""
+        # Find start and goal positions
+        start_pos = None
+        goal_pos = None
+
+        for y in range(self.height):
+            for x in range(self.width):
+                if self.maze[y][x] == TERRAIN_START or (start_pos is None and self.maze[y][x] == TERRAIN_GRASS and y == 1 and x == 1):
+                    start_pos = (x, y)
+                if y == self.height - 2 and x == self.width - 2:
+                    goal_pos = (x, y)
+
+        if not start_pos:
+            start_pos = (1, 1)
+        if not goal_pos:
+            goal_pos = (self.width - 2, self.height - 2)
+
+        # BFS to check reachability
+        from collections import deque
+        queue = deque([start_pos])
+        visited = set([start_pos])
+
+        while queue:
+            x, y = queue.popleft()
+
+            if (x, y) == goal_pos:
+                return True
+
+            # Check all 4 directions
+            for dx, dy in [(0, 1), (1, 0), (0, -1), (-1, 0)]:
+                nx, ny = x + dx, y + dy
+
+                if (0 <= nx < self.width and
+                    0 <= ny < self.height and
+                    (nx, ny) not in visited):
+
+                    terrain = self.maze[ny][nx]
+                    # Can move through any terrain except walls and lava
+                    if terrain != TERRAIN_WALL and terrain != TERRAIN_LAVA:
+                        visited.add((nx, ny))
+                        queue.append((nx, ny))
+
+        return False
 
     def _get_unvisited_neighbors(self, x, y):
         """Get unvisited neighbors 2 steps away"""

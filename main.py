@@ -233,7 +233,7 @@ def draw_ui(screen, width, height, moves, total_cost, won=False):
         ("Grass: 1", GREEN),
         ("Water: 3", BLUE),
         ("Mud: 5", (139, 69, 19)),
-        ("Lava: ∞", RED)
+        ("Lava: Impassable", RED)
     ]
     for terrain, color in terrain_info:
         terrain_text = font_small.render(terrain, True, color)
