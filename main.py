@@ -65,6 +65,10 @@ def load_sprite(filename, size=TILE_SIZE):
 
 # Load all sprites
 grass_sprite = load_sprite("grass.png")
+wall_sprite = load_sprite("wall.png")
+water_sprite = load_sprite("water.png")
+mud_sprite = load_sprite("mud.png")
+lava_sprite = load_sprite("lava.png")
 empty_sprite = load_sprite("empty.png")
 
 
@@ -122,8 +126,10 @@ def draw_maze(screen, maze, tile_size):
         for x, cell in enumerate(row):
             rect = pygame.Rect(x * tile_size, y * tile_size, tile_size, tile_size)
 
-            if cell == 1:  # Wall - use grass sprite
+            if cell == 0:   # Main path - use grass sprite
                 screen.blit(grass_sprite, rect)
+            elif cell == 1:  # Wall - use brick wall sprite
+                screen.blit(wall_sprite, rect)
             elif cell == 2:  # Start - use empty with green overlay
                 screen.blit(empty_sprite, rect)
                 # Add green tint for start
@@ -265,7 +271,6 @@ def loop(maze, player, moves, won):
         draw_maze(screen, maze, TILE_SIZE)
 
         # Draw player
-        # Draw player
         player.draw(screen)
 
         # Draw UI
@@ -294,7 +299,7 @@ def loop(maze, player, moves, won):
                     # Check if won
                     if player.is_at_goal(maze):
                         won = True
-                        print(f"\n🎉 Congratulations! You won in {moves} moves! 🎉\n")
+                        print(f"\nCongratulations! You won in {moves} moves!\n")
 
             # Restart with new maze
             if event.type == pygame.KEYDOWN and event.key == pygame.K_r:
