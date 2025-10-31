@@ -1,7 +1,11 @@
 import pygame
 import sys
 import os
-from maze_generation import generate_maze, create_simple_maze
+from maze_generation import (
+    generate_maze, create_simple_maze, get_terrain_cost, is_passable,
+    TERRAIN_GRASS, TERRAIN_WALL, TERRAIN_START, TERRAIN_GOAL,
+    TERRAIN_WATER, TERRAIN_MUD, TERRAIN_LAVA
+)
 
 # Initialize pygame
 pygame.init()
@@ -82,20 +86,27 @@ class Player:
         self.speed = 1  # Tiles per move
         self.color = BLUE
         self.sprite = sprite
+        self.total_cost = 0  # Track total movement cost
 
     def move(self, dx, dy, maze):
-        """Move player if the destination is not a wall"""
+        """Move player if the destination is passable, return cost of move"""
         new_x = self.tile_x + dx
         new_y = self.tile_y + dy
 
-        # Check bounds and walls
-        if (0 <= new_y < len(maze) and
-            0 <= new_x < len(maze[0]) and
-            maze[new_y][new_x] != 1):  # Not a wall
+        # Check bounds
+        if not (0 <= new_y < len(maze) and 0 <= new_x < len(maze[0])):
+            return 0
+
+        terrain = maze[new_y][new_x]
+
+        # Check if terrain is passable
+        if is_passable(terrain):
             self.tile_x = new_x
             self.tile_y = new_y
-            return True
-        return False
+            move_cost = get_terrain_cost(terrain)
+            self.total_cost += move_cost
+            return move_cost
+        return 0
 
     def draw(self, screen):
         """Draw the player"""
@@ -117,28 +128,34 @@ class Player:
 
     def is_at_goal(self, maze):
         """Check if player reached the goal"""
-        return maze[self.tile_y][self.tile_x] == 3
+        return maze[self.tile_y][self.tile_x] == TERRAIN_GOAL
 
 
 def draw_maze(screen, maze, tile_size):
-    """Draw the maze on screen using sprites"""
+    """Draw the maze on screen using sprites with different terrain types"""
     for y, row in enumerate(maze):
         for x, cell in enumerate(row):
             rect = pygame.Rect(x * tile_size, y * tile_size, tile_size, tile_size)
 
-            if cell == 0:   # Main path - use grass sprite
+            if cell == TERRAIN_GRASS:  # Grass - cost 1
                 screen.blit(grass_sprite, rect)
-            elif cell == 1:  # Wall - use brick wall sprite
-                screen.blit(wall_sprite, rect)
-            elif cell == 2:  # Start - use empty with green overlay
-                screen.blit(empty_sprite, rect)
+            elif cell == TERRAIN_WALL:  # Wall - impassable
+                screen.blit(wall_sprite, rect)  # Use grass as wall for now
+            elif cell == TERRAIN_WATER:  # Water - cost 3
+                screen.blit(water_sprite, rect)
+            elif cell == TERRAIN_MUD:  # Mud - cost 5
+                screen.blit(mud_sprite, rect)
+            elif cell == TERRAIN_LAVA:  # Lava - impassable
+                screen.blit(lava_sprite, rect)
+            elif cell == TERRAIN_START:  # Start - use grass with green overlay
+                screen.blit(grass_sprite, rect)
                 # Add green tint for start
                 overlay = pygame.Surface((tile_size, tile_size))
                 overlay.fill(GREEN)
                 overlay.set_alpha(120)
                 screen.blit(overlay, rect)
-            elif cell == 3:  # Goal - use empty with red overlay
-                screen.blit(empty_sprite, rect)
+            elif cell == TERRAIN_GOAL:  # Goal - use grass with red flag
+                screen.blit(grass_sprite, rect)
                 # Add red tint for goal
                 overlay = pygame.Surface((tile_size, tile_size))
                 overlay.fill(RED)
@@ -156,14 +173,15 @@ def draw_maze(screen, maze, tile_size):
                     (rect.centerx, rect.top + 8),
                 ]
                 pygame.draw.polygon(screen, RED, flag_tri)
-            else:  # Path - use empty sprite
+            else:  # Fallback
                 screen.blit(empty_sprite, rect)
 
 
-def draw_ui(screen, width, height, moves, won=False):
+def draw_ui(screen, width, height, moves, total_cost, won=False):
     """Draw UI information on the right side"""
     font_title = pygame.font.Font(None, 48)
-    font_text = pygame.font.Font(None, 36)
+    font_text = pygame.font.Font(None, 32)
+    font_small = pygame.font.Font(None, 28)
 
     # UI starts after the maze display area (right side)
     ui_x_start = MAZE_DISPLAY_WIDTH
@@ -188,19 +206,49 @@ def draw_ui(screen, width, height, moves, won=False):
     moves_label_rect = moves_label.get_rect(centerx=ui_x_start + UI_WIDTH // 2, y=y_pos)
     screen.blit(moves_label, moves_label_rect)
 
-    y_pos += 50
+    y_pos += 45
     moves_text = font_title.render(str(moves), True, GREEN)
     moves_rect = moves_text.get_rect(centerx=ui_x_start + UI_WIDTH // 2, y=y_pos)
     screen.blit(moves_text, moves_rect)
 
+    # Total cost
+    y_pos += 70
+    cost_label = font_text.render("Total Cost:", True, WHITE)
+    cost_label_rect = cost_label.get_rect(centerx=ui_x_start + UI_WIDTH // 2, y=y_pos)
+    screen.blit(cost_label, cost_label_rect)
+
+    y_pos += 45
+    cost_text = font_title.render(str(total_cost), True, YELLOW)
+    cost_rect = cost_text.get_rect(centerx=ui_x_start + UI_WIDTH // 2, y=y_pos)
+    screen.blit(cost_text, cost_rect)
+
+    # Terrain legend
+    y_pos += 90
+    legend_title = font_text.render("Terrain Costs:", True, WHITE)
+    legend_rect = legend_title.get_rect(centerx=ui_x_start + UI_WIDTH // 2, y=y_pos)
+    screen.blit(legend_title, legend_rect)
+
+    y_pos += 40
+    terrain_info = [
+        ("Grass: 1", GREEN),
+        ("Water: 3", BLUE),
+        ("Mud: 5", (139, 69, 19)),
+        ("Lava: ∞", RED)
+    ]
+    for terrain, color in terrain_info:
+        terrain_text = font_small.render(terrain, True, color)
+        terrain_rect = terrain_text.get_rect(centerx=ui_x_start + UI_WIDTH // 2, y=y_pos)
+        screen.blit(terrain_text, terrain_rect)
+        y_pos += 35
+
     # Win message or instructions
-    y_pos += 150
+    y_pos += 50
     if won:
         win_text = font_title.render("YOU WIN!", True, YELLOW)
         win_rect = win_text.get_rect(centerx=ui_x_start + UI_WIDTH // 2, y=y_pos)
         screen.blit(win_text, win_rect)
 
-        y_pos += 70
+        y_pos += 60
         restart_text = font_text.render("Press R to restart", True, WHITE)
         restart_rect = restart_text.get_rect(centerx=ui_x_start + UI_WIDTH // 2, y=y_pos)
         screen.blit(restart_text, restart_rect)
@@ -210,10 +258,10 @@ def draw_ui(screen, width, height, moves, won=False):
         controls_rect = controls_title.get_rect(centerx=ui_x_start + UI_WIDTH // 2, y=y_pos)
         screen.blit(controls_title, controls_rect)
 
-        y_pos += 50
+        y_pos += 40
         controls = [
-            "WASD or Arrow Keys - Move",
-            "R - New Random Maze"
+            "WASD/Arrows - Move",
+            "R - New Maze"
         ]
         for control in controls:
             control_text = font_text.render(control, True, WHITE)
@@ -223,10 +271,10 @@ def draw_ui(screen, width, height, moves, won=False):
 
 
 def find_start_position(maze):
-    """Find the start position (marked as 2) in the maze"""
+    """Find the start position (marked as TERRAIN_START) in the maze"""
     for y, row in enumerate(maze):
         for x, cell in enumerate(row):
-            if cell == 2:
+            if cell == TERRAIN_START:
                 return x, y
     # Default to (1, 1) if no start found
     return 1, 1
@@ -274,7 +322,7 @@ def loop(maze, player, moves, won):
         player.draw(screen)
 
         # Draw UI
-        draw_ui(screen, TOTAL_WINDOW_WIDTH, TOTAL_WINDOW_HEIGHT, moves, won)
+        draw_ui(screen, TOTAL_WINDOW_WIDTH, TOTAL_WINDOW_HEIGHT, moves, player.total_cost, won)
 
         # Handle events
         for event in pygame.event.get():
@@ -282,24 +330,26 @@ def loop(maze, player, moves, won):
                 run = False
 
             elif event.type == pygame.KEYDOWN and not won:
-                moved = False
+                move_cost = 0
 
                 # Movement
                 if event.key in (pygame.K_w, pygame.K_UP):
-                    moved = player.move(0, -1, maze)
+                    move_cost = player.move(0, -1, maze)
                 elif event.key in (pygame.K_s, pygame.K_DOWN):
-                    moved = player.move(0, 1, maze)
+                    move_cost = player.move(0, 1, maze)
                 elif event.key in (pygame.K_a, pygame.K_LEFT):
-                    moved = player.move(-1, 0, maze)
+                    move_cost = player.move(-1, 0, maze)
                 elif event.key in (pygame.K_d, pygame.K_RIGHT):
-                    moved = player.move(1, 0, maze)
+                    move_cost = player.move(1, 0, maze)
 
-                if moved:
+                if move_cost > 0:
                     moves += 1
                     # Check if won
                     if player.is_at_goal(maze):
                         won = True
-                        print(f"\nCongratulations! You won in {moves} moves!\n")
+                        print(f"\n🎉 Congratulations! You won! 🎉")
+                        print(f"Moves: {moves}")
+                        print(f"Total Cost: {player.total_cost}\n")
 
             # Restart with new maze
             if event.type == pygame.KEYDOWN and event.key == pygame.K_r:
