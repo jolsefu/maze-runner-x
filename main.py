@@ -6,6 +6,7 @@ from maze_generation import (
     TERRAIN_GRASS, TERRAIN_WALL, TERRAIN_START, TERRAIN_GOAL,
     TERRAIN_WATER, TERRAIN_MUD, TERRAIN_LAVA
 )
+from controls import InputController
 
 # Initialize pygame
 pygame.init()
@@ -296,27 +297,45 @@ def start():
 
     player = Player(start_x, start_y, TILE_SIZE, player_sprite)
 
+    # Create input controller
+    input_controller = InputController(TILE_SIZE)
+
     moves = 0
     won = False
 
-    loop(maze, player, moves, won)
+    loop(maze, player, input_controller, moves, won)
     print("=" * 50)
     print("PYGAME STOPPED".center(50))
     print("=" * 50)
 
 
-def loop(maze, player, moves, won):
+def loop(maze, player, input_controller, moves, won):
     """Main game loop"""
     run = True
 
     while run:
         clock.tick(60)  # 60 FPS
 
+        # Update mouse movement (if mouse is held)
+        if not won:
+            mouse_move_cost = input_controller.update_mouse_movement(player, maze, delay_frames=5)
+            if mouse_move_cost > 0:
+                moves += 1
+                # Check if won
+                if player.is_at_goal(maze):
+                    won = True
+                    print(f"\n🎉 Congratulations! You won! 🎉")
+                    print(f"Moves: {moves}")
+                    print(f"Total Cost: {player.total_cost}\n")
+
         # Fill background
         screen.fill(BLACK)
 
         # Draw maze
         draw_maze(screen, maze, TILE_SIZE)
+
+        # Draw path visualization (if mouse is held)
+        input_controller.draw_path(screen, TILE_SIZE)
 
         # Draw player
         player.draw(screen)
@@ -329,18 +348,13 @@ def loop(maze, player, moves, won):
             if event.type == pygame.QUIT:
                 run = False
 
-            elif event.type == pygame.KEYDOWN and not won:
-                move_cost = 0
+            # Handle mouse input
+            if not won:
+                input_controller.handle_mouse_input(event, player, maze)
 
-                # Movement
-                if event.key in (pygame.K_w, pygame.K_UP):
-                    move_cost = player.move(0, -1, maze)
-                elif event.key in (pygame.K_s, pygame.K_DOWN):
-                    move_cost = player.move(0, 1, maze)
-                elif event.key in (pygame.K_a, pygame.K_LEFT):
-                    move_cost = player.move(-1, 0, maze)
-                elif event.key in (pygame.K_d, pygame.K_RIGHT):
-                    move_cost = player.move(1, 0, maze)
+            # Handle keyboard input
+            if not won:
+                move_cost = input_controller.handle_keyboard_input(event, player, maze)
 
                 if move_cost > 0:
                     moves += 1
@@ -363,6 +377,7 @@ def loop(maze, player, moves, won):
                 pygame.draw.circle(player_sprite, WHITE, (TILE_SIZE // 2, TILE_SIZE // 2), TILE_SIZE // 3, 2)
 
                 player = Player(start_x, start_y, TILE_SIZE, player_sprite)
+                input_controller = InputController(TILE_SIZE)
                 moves = 0
                 won = False
 
