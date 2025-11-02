@@ -25,10 +25,11 @@ TERRAIN_COSTS = {
 class MazeGenerator:
     """Generate mazes using recursive backtracking algorithm with terrain types"""
 
-    def __init__(self, width, height):
+    def __init__(self, width, height, goal_placement='corner'):
         self.width = width
         self.height = height
         self.maze = [[TERRAIN_WALL for _ in range(width)] for _ in range(height)]
+        self.goal_placement = goal_placement  # 'corner' or 'center'
 
     def generate(self):
         """Generate maze using recursive backtracking"""
@@ -62,7 +63,19 @@ class MazeGenerator:
 
         # Set start and end points
         self.maze[1][1] = TERRAIN_START  # Start
-        self.maze[self.height - 2][self.width - 2] = TERRAIN_GOAL  # Goal
+
+        # Set goal based on placement option
+        if self.goal_placement == 'center':
+            goal_x = self.width // 2
+            goal_y = self.height // 2
+            # Make sure it's on a valid path (odd coordinates for maze paths)
+            if goal_x % 2 == 0:
+                goal_x -= 1
+            if goal_y % 2 == 0:
+                goal_y -= 1
+            self.maze[goal_y][goal_x] = TERRAIN_GOAL
+        else:  # 'corner' (default)
+            self.maze[self.height - 2][self.width - 2] = TERRAIN_GOAL
 
         return self.maze
 
@@ -162,12 +175,13 @@ def is_passable(terrain_type):
     return TERRAIN_COSTS.get(terrain_type, float('inf')) < float('inf')
 
 
-def generate_maze(width=25, height=25):
+def generate_maze(width=25, height=25, goal_placement='corner'):
     """Generate a new random maze with terrain variety
 
     Args:
         width: Width of maze (should be odd number for best results)
         height: Height of maze (should be odd number for best results)
+        goal_placement: Where to place the goal ('corner' or 'center')
 
     Returns:
         2D list representing the maze where:
@@ -179,7 +193,7 @@ def generate_maze(width=25, height=25):
         5 = mud (cost 5)
         6 = lava (impassable)
     """
-    generator = MazeGenerator(width, height)
+    generator = MazeGenerator(width, height, goal_placement)
     return generator.generate()
 
 

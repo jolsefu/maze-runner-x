@@ -125,8 +125,66 @@ def draw_controls_screen(screen):
         else:
             y_pos += 20
 
+def draw_settings_screen(screen, goal_placement):
+    """Draw the settings screen"""
+    title_font = pygame.font.Font(None, 72)
+    text_font = pygame.font.Font(None, 36)
+
+    # Title
+    title = title_font.render("Settings", True, YELLOW)
+    title_rect = title.get_rect(center=(MENU_WIDTH // 2, 80))
+    screen.blit(title, title_rect)
+
+    # Goal Placement Setting
+    y_pos = 200
+    setting_label = text_font.render("Goal Placement:", True, WHITE)
+    setting_rect = setting_label.get_rect(center=(MENU_WIDTH // 2, y_pos))
+    screen.blit(setting_label, setting_rect)
+
+    y_pos += 80
+    corner_text = f"Bottom-Right Corner" if goal_placement == 'center' else "* Bottom-Right Corner"
+    corner_color = WHITE if goal_placement == 'center' else GREEN
+    corner_label = text_font.render(corner_text, True, corner_color)
+    corner_rect = corner_label.get_rect(center=(MENU_WIDTH // 2, y_pos))
+    screen.blit(corner_label, corner_rect)
+
+    y_pos += 60
+    center_text = f"Center of Maze" if goal_placement == 'corner' else "* Center of Maze"
+    center_color = WHITE if goal_placement == 'corner' else GREEN
+    center_label = text_font.render(center_text, True, center_color)
+    center_rect = center_label.get_rect(center=(MENU_WIDTH // 2, y_pos))
+    screen.blit(center_label, center_rect)
+
+    # Description
+    y_pos += 100
+    desc_font = pygame.font.Font(None, 28)
+    if goal_placement == 'corner':
+        desc_text = "Maze has one optimal path from start to goal"
+    else:
+        desc_text = "Goal in center creates more route options"
+
+    desc_label = desc_font.render(desc_text, True, GRAY)
+    desc_rect = desc_label.get_rect(center=(MENU_WIDTH // 2, y_pos))
+    screen.blit(desc_label, desc_rect)
+
+    # Instructions
+    y_pos += 80
+    inst_text = "Click on an option to select it"
+    inst_label = text_font.render(inst_text, True, GRAY)
+    inst_rect = inst_label.get_rect(center=(MENU_WIDTH // 2, y_pos))
+    screen.blit(inst_label, inst_rect)
+
+    return {
+        'corner': pygame.Rect(MENU_WIDTH // 2 - 250, 280 - 30, 500, 60),
+        'center': pygame.Rect(MENU_WIDTH // 2 - 250, 340 - 30, 500, 60)
+    }
+
+
 def show_menu():
     """Display the main menu and handle user input"""
+    # Game settings
+    goal_placement = 'corner'  # Default: bottom-right corner
+
     # Create buttons
     button_width = 300
     button_height = 60
@@ -134,11 +192,12 @@ def show_menu():
     start_y = 250
 
     start_button = Button(button_x, start_y, button_width, button_height, "Start Game", BLUE, GREEN)
-    controls_button = Button(button_x, start_y + 90, button_width, button_height, "Controls", BLUE, GREEN)
-    quit_button = Button(button_x, start_y + 180, button_width, button_height, "Quit", RED, YELLOW)
+    settings_button = Button(button_x, start_y + 90, button_width, button_height, "Settings", BLUE, GREEN)
+    controls_button = Button(button_x, start_y + 180, button_width, button_height, "Controls", BLUE, GREEN)
+    quit_button = Button(button_x, start_y + 270, button_width, button_height, "Quit", RED, YELLOW)
     back_button = Button(button_x, MENU_HEIGHT - 120, button_width, button_height, "Back", GRAY, GREEN)
 
-    current_screen = "main"  # Can be "main" or "controls"
+    current_screen = "main"  # Can be "main", "controls", or "settings"
     running = True
 
     while running:
@@ -158,7 +217,7 @@ def show_menu():
 
             if event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_ESCAPE:
-                    if current_screen == "controls":
+                    if current_screen in ["controls", "settings"]:
                         current_screen = "main"
                     else:
                         pygame.quit()
@@ -173,16 +232,21 @@ def show_menu():
 
             # Update and draw buttons
             start_button.update(mouse_pos)
+            settings_button.update(mouse_pos)
             controls_button.update(mouse_pos)
             quit_button.update(mouse_pos)
 
             start_button.draw(screen)
+            settings_button.draw(screen)
             controls_button.draw(screen)
             quit_button.draw(screen)
 
             # Check for button clicks
             if start_button.is_clicked(mouse_pos, mouse_click):
-                return "start"  # Signal to start the game
+                return ("start", goal_placement)  # Return game settings
+
+            if settings_button.is_clicked(mouse_pos, mouse_click):
+                current_screen = "settings"
 
             if controls_button.is_clicked(mouse_pos, mouse_click):
                 current_screen = "controls"
@@ -190,6 +254,25 @@ def show_menu():
             if quit_button.is_clicked(mouse_pos, mouse_click):
                 pygame.quit()
                 sys.exit()
+
+        elif current_screen == "settings":
+            # Draw settings screen
+            option_rects = draw_settings_screen(screen, goal_placement)
+
+            # Check for clicks on settings options
+            if mouse_click:
+                if option_rects['corner'].collidepoint(mouse_pos):
+                    goal_placement = 'corner'
+                elif option_rects['center'].collidepoint(mouse_pos):
+                    goal_placement = 'center'
+
+            # Update and draw back button
+            back_button.update(mouse_pos)
+            back_button.draw(screen)
+
+            # Check for back button click
+            if back_button.is_clicked(mouse_pos, mouse_click):
+                current_screen = "main"
 
         elif current_screen == "controls":
             # Draw controls screen
@@ -212,10 +295,12 @@ def show_menu():
 if __name__ == "__main__":
     result = show_menu()
 
-    if result == "start":
+    if result[0] == "start":
         # Close menu and start the game
+        goal_placement = result[1]
         pygame.quit()
 
-        # Import and start the main game
+        # Import and start the main game with settings
         import main
+        main.start(goal_placement)
         main.start()

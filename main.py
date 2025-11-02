@@ -281,10 +281,14 @@ def find_start_position(maze):
     return 1, 1
 
 
-def start():
-    """Start the game"""
+def start(goal_placement='corner'):
+    """Start the game
+
+    Args:
+        goal_placement: Where to place the goal ('corner' or 'center')
+    """
     # Generate maze
-    maze = generate_maze(MAZE_WIDTH, MAZE_HEIGHT)
+    maze = generate_maze(MAZE_WIDTH, MAZE_HEIGHT, goal_placement)
 
     # Find start position and create player
     start_x, start_y = find_start_position(maze)
@@ -303,13 +307,13 @@ def start():
     moves = 0
     won = False
 
-    loop(maze, player, input_controller, moves, won)
+    loop(maze, player, input_controller, moves, won, goal_placement)
     print("=" * 50)
     print("PYGAME STOPPED".center(50))
     print("=" * 50)
 
 
-def loop(maze, player, input_controller, moves, won):
+def loop(maze, player, input_controller, moves, won, goal_placement):
     """Main game loop"""
     run = True
 
@@ -367,8 +371,8 @@ def loop(maze, player, input_controller, moves, won):
 
             # Restart with new maze
             if event.type == pygame.KEYDOWN and event.key == pygame.K_r:
-                # Generate new maze
-                maze = generate_maze(MAZE_WIDTH, MAZE_HEIGHT)
+                # Generate new maze with same settings
+                maze = generate_maze(MAZE_WIDTH, MAZE_HEIGHT, goal_placement)
                 start_x, start_y = find_start_position(maze)
 
                 # Recreate player sprite
@@ -388,4 +392,4 @@ def loop(maze, player, input_controller, moves, won):
 
 
 if __name__ == "__main__":
-    start()
+    start('corner')  # Default to corner placement when running directly
