@@ -9,6 +9,7 @@ TERRAIN_GOAL = 3    # Goal point
 TERRAIN_WATER = 4   # Cost: 3
 TERRAIN_MUD = 5     # Cost: 5
 TERRAIN_LAVA = 6    # Impassable
+TERRAIN_CHECKPOINT = 7  # Checkpoint (resets cost)
 
 # Movement costs for each terrain type
 TERRAIN_COSTS = {
@@ -18,17 +19,21 @@ TERRAIN_COSTS = {
     TERRAIN_GOAL: 1,
     TERRAIN_WATER: 3,
     TERRAIN_MUD: 5,
-    TERRAIN_LAVA: float('inf')
+    TERRAIN_LAVA: float('inf'),
+    TERRAIN_CHECKPOINT: 1
 }
 
 
 class MazeGenerator:
     """Generate mazes using recursive backtracking algorithm with terrain types"""
 
-    def __init__(self, width, height, goal_placement='corner'):
+    def __init__(self, width, height, goal_placement='corner', game_mode='explore', num_checkpoints=3):
         self.width = width
         self.height = height
         self.maze = [[TERRAIN_WALL for _ in range(width)] for _ in range(height)]
+        self.goal_placement = goal_placement  # 'corner' or 'center'
+        self.game_mode = game_mode  # 'explore', 'dynamic', or 'multi-goal'
+        self.num_checkpoints = num_checkpoints  # Number of checkpoints for multi-goal mode
         self.goal_placement = goal_placement  # 'corner' or 'center'
 
     def generate(self):
@@ -58,11 +63,20 @@ class MazeGenerator:
             else:
                 stack.pop()
 
-        # Add different terrain types to the maze paths
-        self._add_terrain_variety()
+        # Add different terrain types based on game mode
+        if self.game_mode == 'dynamic':
+            # For dynamic mode, add minimal terrain - obstacles appear during gameplay
+            self._add_minimal_terrain()
+        else:
+            # For explore and multi-goal modes, add full terrain variety
+            self._add_terrain_variety()
 
-        # Set start and end points
+        # Set start point
         self.maze[1][1] = TERRAIN_START  # Start
+
+        # Set goal and checkpoints based on game mode
+        if self.game_mode == 'multi-goal':
+            self._place_checkpoints()
 
         # Set goal based on placement option
         if self.goal_placement == 'center':
@@ -78,6 +92,40 @@ class MazeGenerator:
             self.maze[self.height - 2][self.width - 2] = TERRAIN_GOAL
 
         return self.maze
+
+    def _add_minimal_terrain(self):
+        """Add minimal terrain for dynamic mode (mostly grass)"""
+        # Only add a small amount of water and mud
+        for y in range(1, self.height - 1):
+            for x in range(1, self.width - 1):
+                if self.maze[y][x] == TERRAIN_GRASS:
+                    rand = random.random()
+                    if rand < 0.10:  # 10% water
+                        self.maze[y][x] = TERRAIN_WATER
+                    elif rand < 0.15:  # 5% mud
+                        self.maze[y][x] = TERRAIN_MUD
+        # No lava in initial generation for dynamic mode
+
+    def _place_checkpoints(self):
+        """Place checkpoints throughout the maze for multi-goal mode"""
+        # Get all valid path positions (excluding start and near goal)
+        valid_positions = []
+        for y in range(1, self.height - 1):
+            for x in range(1, self.width - 1):
+                if self.maze[y][x] == TERRAIN_GRASS:
+                    # Don't place too close to start
+                    if abs(x - 1) + abs(y - 1) > 10:
+                        # Don't place too close to goal position
+                        goal_x = self.width - 2 if self.goal_placement == 'corner' else self.width // 2
+                        goal_y = self.height - 2 if self.goal_placement == 'corner' else self.height // 2
+                        if abs(x - goal_x) + abs(y - goal_y) > 10:
+                            valid_positions.append((x, y))
+
+        # Randomly select checkpoint positions
+        if len(valid_positions) >= self.num_checkpoints:
+            checkpoint_positions = random.sample(valid_positions, self.num_checkpoints)
+            for x, y in checkpoint_positions:
+                self.maze[y][x] = TERRAIN_CHECKPOINT
 
     def _add_terrain_variety(self):
         """Add different terrain types to path tiles, ensuring goal is reachable"""
@@ -175,13 +223,15 @@ def is_passable(terrain_type):
     return TERRAIN_COSTS.get(terrain_type, float('inf')) < float('inf')
 
 
-def generate_maze(width=25, height=25, goal_placement='corner'):
+def generate_maze(width=25, height=25, goal_placement='corner', game_mode='explore', num_checkpoints=3):
     """Generate a new random maze with terrain variety
 
     Args:
         width: Width of maze (should be odd number for best results)
         height: Height of maze (should be odd number for best results)
         goal_placement: Where to place the goal ('corner' or 'center')
+        game_mode: Game mode ('explore', 'dynamic', or 'multi-goal')
+        num_checkpoints: Number of checkpoints for multi-goal mode
 
     Returns:
         2D list representing the maze where:
@@ -192,8 +242,9 @@ def generate_maze(width=25, height=25, goal_placement='corner'):
         4 = water (cost 3)
         5 = mud (cost 5)
         6 = lava (impassable)
+        7 = checkpoint (resets cost in multi-goal mode)
     """
-    generator = MazeGenerator(width, height, goal_placement)
+    generator = MazeGenerator(width, height, goal_placement, game_mode, num_checkpoints)
     return generator.generate()
 
 

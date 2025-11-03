@@ -1,10 +1,11 @@
 import pygame
 import sys
 import os
+import random
 from maze_generation import (
     generate_maze, create_simple_maze, get_terrain_cost, is_passable,
     TERRAIN_GRASS, TERRAIN_WALL, TERRAIN_START, TERRAIN_GOAL,
-    TERRAIN_WATER, TERRAIN_MUD, TERRAIN_LAVA
+    TERRAIN_WATER, TERRAIN_MUD, TERRAIN_LAVA, TERRAIN_CHECKPOINT
 )
 from controls import InputController
 
@@ -70,12 +71,11 @@ def load_sprite(filename, size=TILE_SIZE):
 
 # Load all sprites
 grass_sprite = load_sprite("grass.png")
-wall_sprite = load_sprite("wall.png")
+empty_sprite = load_sprite("empty.png")
 water_sprite = load_sprite("water.png")
 mud_sprite = load_sprite("mud.png")
 lava_sprite = load_sprite("lava.png")
-empty_sprite = load_sprite("empty.png")
-
+wall_sprite = load_sprite("wall.png")
 
 class Player:
     """Player that navigates the maze"""
@@ -88,6 +88,8 @@ class Player:
         self.color = BLUE
         self.sprite = sprite
         self.total_cost = 0  # Track total movement cost
+        self.exploration_cost = 0  # Total exploration cost (for multi-goal mode)
+        self.checkpoints_collected = 0  # Number of checkpoints collected
 
     def move(self, dx, dy, maze):
         """Move player if the destination is passable, return cost of move"""
@@ -141,13 +143,22 @@ def draw_maze(screen, maze, tile_size):
             if cell == TERRAIN_GRASS:  # Grass - cost 1
                 screen.blit(grass_sprite, rect)
             elif cell == TERRAIN_WALL:  # Wall - impassable
-                screen.blit(wall_sprite, rect)  # Use grass as wall for now
+                screen.blit(wall_sprite, rect)
             elif cell == TERRAIN_WATER:  # Water - cost 3
                 screen.blit(water_sprite, rect)
             elif cell == TERRAIN_MUD:  # Mud - cost 5
                 screen.blit(mud_sprite, rect)
             elif cell == TERRAIN_LAVA:  # Lava - impassable
                 screen.blit(lava_sprite, rect)
+            elif cell == TERRAIN_CHECKPOINT:  # Checkpoint - resets cost
+                screen.blit(grass_sprite, rect)
+                # Draw checkpoint marker (yellow star)
+                overlay = pygame.Surface((tile_size, tile_size))
+                overlay.fill(YELLOW)
+                overlay.set_alpha(100)
+                screen.blit(overlay, rect)
+                # Draw star shape
+                pygame.draw.circle(screen, YELLOW, rect.center, tile_size // 4, 3)
             elif cell == TERRAIN_START:  # Start - use grass with green overlay
                 screen.blit(grass_sprite, rect)
                 # Add green tint for start
@@ -178,8 +189,8 @@ def draw_maze(screen, maze, tile_size):
                 screen.blit(empty_sprite, rect)
 
 
-def draw_ui(screen, width, height, moves, total_cost, won=False):
-    """Draw UI information on the right side"""
+def draw_ui(screen, width, height, moves, total_cost, won, game_mode='explore', player=None, num_checkpoints=3):
+    """Draw the UI elements on the right side of the screen."""
     font_title = pygame.font.Font(None, 48)
     font_text = pygame.font.Font(None, 32)
     font_small = pygame.font.Font(None, 28)
@@ -222,6 +233,30 @@ def draw_ui(screen, width, height, moves, total_cost, won=False):
     cost_text = font_title.render(str(total_cost), True, YELLOW)
     cost_rect = cost_text.get_rect(centerx=ui_x_start + UI_WIDTH // 2, y=y_pos)
     screen.blit(cost_text, cost_rect)
+
+    # Multi-goal mode specific UI
+    if game_mode == 'multi-goal' and player:
+        # Checkpoints collected
+        y_pos += 70
+        checkpoint_label = font_text.render("Checkpoints:", True, WHITE)
+        checkpoint_label_rect = checkpoint_label.get_rect(centerx=ui_x_start + UI_WIDTH // 2, y=y_pos)
+        screen.blit(checkpoint_label, checkpoint_label_rect)
+
+        y_pos += 45
+        checkpoint_text = font_title.render(f"{player.checkpoints_collected}/{num_checkpoints}", True, (255, 200, 0))
+        checkpoint_rect = checkpoint_text.get_rect(centerx=ui_x_start + UI_WIDTH // 2, y=y_pos)
+        screen.blit(checkpoint_text, checkpoint_rect)
+
+        # Exploration cost
+        y_pos += 70
+        explore_label = font_text.render("Exploration Cost:", True, WHITE)
+        explore_label_rect = explore_label.get_rect(centerx=ui_x_start + UI_WIDTH // 2, y=y_pos)
+        screen.blit(explore_label, explore_label_rect)
+
+        y_pos += 45
+        explore_text = font_title.render(str(player.exploration_cost), True, (100, 200, 255))
+        explore_rect = explore_text.get_rect(centerx=ui_x_start + UI_WIDTH // 2, y=y_pos)
+        screen.blit(explore_text, explore_rect)
 
     # Terrain legend
     y_pos += 90
@@ -281,14 +316,92 @@ def find_start_position(maze):
     return 1, 1
 
 
-def start(goal_placement='corner'):
+def spawn_dynamic_obstacles(maze, player, moves):
+    """Spawn obstacles dynamically based on player movement (for dynamic mode)
+
+    Args:
+        maze: The maze array
+        player: The player object
+        moves: Number of moves made
+    """
+    # Spawn obstacles every 3-5 moves
+    if moves % 4 != 0:
+        return
+
+    # Calculate distance to goal
+    goal_x, goal_y = None, None
+    for y in range(len(maze)):
+        for x in range(len(maze[0])):
+            if maze[y][x] == TERRAIN_GOAL:
+                goal_x, goal_y = x, y
+                break
+        if goal_x is not None:
+            break
+
+    if goal_x is None:
+        return
+
+    player_distance_to_goal = abs(player.tile_x - goal_x) + abs(player.tile_y - goal_y)
+
+    # Find all grass tiles that could become obstacles
+    valid_positions = []
+    for y in range(1, len(maze) - 1):
+        for x in range(1, len(maze[0]) - 1):
+            if maze[y][x] == TERRAIN_GRASS:
+                # Don't place obstacles too close to player (within 3 tiles)
+                if abs(x - player.tile_x) + abs(y - player.tile_y) > 3:
+                    # Don't place obstacles on the goal
+                    if not (x == goal_x and y == goal_y):
+                        valid_positions.append((x, y))
+
+    if not valid_positions:
+        return
+
+    # Spawn 1-2 obstacles per trigger
+    num_obstacles = random.randint(1, 2)
+    num_obstacles = min(num_obstacles, len(valid_positions))
+
+    for _ in range(num_obstacles):
+        x, y = random.choice(valid_positions)
+        valid_positions.remove((x, y))
+
+        # Determine obstacle type based on distance to goal
+        # Closer to goal = more dangerous obstacles
+        rand = random.random()
+
+        if player_distance_to_goal < 15:  # Close to goal
+            if rand < 0.3:  # 30% lava
+                maze[y][x] = TERRAIN_LAVA
+            elif rand < 0.6:  # 30% mud
+                maze[y][x] = TERRAIN_MUD
+            else:  # 40% water
+                maze[y][x] = TERRAIN_WATER
+        elif player_distance_to_goal < 30:  # Medium distance
+            if rand < 0.15:  # 15% lava
+                maze[y][x] = TERRAIN_LAVA
+            elif rand < 0.45:  # 30% mud
+                maze[y][x] = TERRAIN_MUD
+            else:  # 55% water
+                maze[y][x] = TERRAIN_WATER
+        else:  # Far from goal
+            if rand < 0.05:  # 5% lava
+                maze[y][x] = TERRAIN_LAVA
+            elif rand < 0.35:  # 30% mud
+                maze[y][x] = TERRAIN_MUD
+            else:  # 65% water
+                maze[y][x] = TERRAIN_WATER
+
+
+def start(goal_placement='corner', game_mode='explore', num_checkpoints=3):
     """Start the game
 
     Args:
         goal_placement: Where to place the goal ('corner' or 'center')
+        game_mode: Game mode ('explore', 'dynamic', or 'multi-goal')
+        num_checkpoints: Number of checkpoints for multi-goal mode
     """
     # Generate maze
-    maze = generate_maze(MAZE_WIDTH, MAZE_HEIGHT, goal_placement)
+    maze = generate_maze(MAZE_WIDTH, MAZE_HEIGHT, goal_placement, game_mode, num_checkpoints)
 
     # Find start position and create player
     start_x, start_y = find_start_position(maze)
@@ -307,13 +420,13 @@ def start(goal_placement='corner'):
     moves = 0
     won = False
 
-    loop(maze, player, input_controller, moves, won, goal_placement)
+    loop(maze, player, input_controller, moves, won, goal_placement, game_mode, num_checkpoints)
     print("=" * 50)
     print("PYGAME STOPPED".center(50))
     print("=" * 50)
 
 
-def loop(maze, player, input_controller, moves, won, goal_placement):
+def loop(maze, player, input_controller, moves, won, goal_placement, game_mode='explore', num_checkpoints=3):
     """Main game loop"""
     run = True
 
@@ -325,12 +438,33 @@ def loop(maze, player, input_controller, moves, won, goal_placement):
             mouse_move_cost = input_controller.update_mouse_movement(player, maze, delay_frames=5)
             if mouse_move_cost > 0:
                 moves += 1
+
+                # Dynamic mode: Spawn obstacles as player moves
+                if game_mode == 'dynamic':
+                    spawn_dynamic_obstacles(maze, player, moves)
+
+                # Multi-goal mode: Check if landed on checkpoint
+                if game_mode == 'multi-goal' and maze[player.tile_y][player.tile_x] == TERRAIN_CHECKPOINT:
+                    player.checkpoints_collected += 1
+                    player.exploration_cost += player.total_cost
+                    player.total_cost = 0
+                    maze[player.tile_y][player.tile_x] = TERRAIN_GRASS  # Convert checkpoint to grass
+                    print(f"✓ Checkpoint collected! ({player.checkpoints_collected}/{num_checkpoints})")
+
                 # Check if won
-                if player.is_at_goal(maze):
+                win_condition = player.is_at_goal(maze)
+                if game_mode == 'multi-goal':
+                    win_condition = win_condition and player.checkpoints_collected >= num_checkpoints
+
+                if win_condition:
                     won = True
                     print(f"\n🎉 Congratulations! You won! 🎉")
                     print(f"Moves: {moves}")
-                    print(f"Total Cost: {player.total_cost}\n")
+                    if game_mode == 'multi-goal':
+                        print(f"Final Cost: {player.total_cost}")
+                        print(f"Total Exploration Cost: {player.exploration_cost + player.total_cost}")
+                    else:
+                        print(f"Total Cost: {player.total_cost}\n")
 
         # Fill background
         screen.fill(BLACK)
@@ -345,7 +479,7 @@ def loop(maze, player, input_controller, moves, won, goal_placement):
         player.draw(screen)
 
         # Draw UI
-        draw_ui(screen, TOTAL_WINDOW_WIDTH, TOTAL_WINDOW_HEIGHT, moves, player.total_cost, won)
+        draw_ui(screen, TOTAL_WINDOW_WIDTH, TOTAL_WINDOW_HEIGHT, moves, player.total_cost, won, game_mode, player, num_checkpoints)
 
         # Handle events
         for event in pygame.event.get():
@@ -362,17 +496,38 @@ def loop(maze, player, input_controller, moves, won, goal_placement):
 
                 if move_cost > 0:
                     moves += 1
+
+                    # Dynamic mode: Spawn obstacles as player moves
+                    if game_mode == 'dynamic':
+                        spawn_dynamic_obstacles(maze, player, moves)
+
+                    # Multi-goal mode: Check if landed on checkpoint
+                    if game_mode == 'multi-goal' and maze[player.tile_y][player.tile_x] == TERRAIN_CHECKPOINT:
+                        player.checkpoints_collected += 1
+                        player.exploration_cost += player.total_cost
+                        player.total_cost = 0
+                        maze[player.tile_y][player.tile_x] = TERRAIN_GRASS  # Convert checkpoint to grass
+                        print(f"✓ Checkpoint collected! ({player.checkpoints_collected}/{num_checkpoints})")
+
                     # Check if won
-                    if player.is_at_goal(maze):
+                    win_condition = player.is_at_goal(maze)
+                    if game_mode == 'multi-goal':
+                        win_condition = win_condition and player.checkpoints_collected >= num_checkpoints
+
+                    if win_condition:
                         won = True
                         print(f"\n🎉 Congratulations! You won! 🎉")
                         print(f"Moves: {moves}")
-                        print(f"Total Cost: {player.total_cost}\n")
+                        if game_mode == 'multi-goal':
+                            print(f"Final Cost: {player.total_cost}")
+                            print(f"Total Exploration Cost: {player.exploration_cost + player.total_cost}")
+                        else:
+                            print(f"Total Cost: {player.total_cost}\n")
 
             # Restart with new maze
             if event.type == pygame.KEYDOWN and event.key == pygame.K_r:
                 # Generate new maze with same settings
-                maze = generate_maze(MAZE_WIDTH, MAZE_HEIGHT, goal_placement)
+                maze = generate_maze(MAZE_WIDTH, MAZE_HEIGHT, goal_placement, game_mode, num_checkpoints)
                 start_x, start_y = find_start_position(maze)
 
                 # Recreate player sprite
