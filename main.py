@@ -324,7 +324,7 @@ def spawn_dynamic_obstacles(maze, player, moves):
         player: The player object
         moves: Number of moves made
     """
-    # Spawn obstacles every 3-5 moves
+    # Spawn obstacles every 4 moves
     if moves % 4 != 0:
         return
 
@@ -392,7 +392,7 @@ def spawn_dynamic_obstacles(maze, player, moves):
                 maze[y][x] = TERRAIN_WATER
 
 
-def start(goal_placement='corner', game_mode='explore', num_checkpoints=3):
+def start(goal_placement='corner', game_mode='explore', num_checkpoints=5):
     """Start the game
 
     Args:
