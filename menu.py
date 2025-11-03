@@ -105,6 +105,8 @@ def draw_controls_screen(screen):
         ("", ""),
         ("R", "Generate New Maze"),
         ("", ""),
+        ("Hold Mouse Left Click", "Go to path using A* Algorithm"),
+        ("", ""),
         ("Objective:", ""),
         ("  Navigate from the green start", ""),
         ("  to the red goal flag!", "")
