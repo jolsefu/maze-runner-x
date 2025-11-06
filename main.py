@@ -8,6 +8,7 @@ from maze_generation import (
     TERRAIN_WATER, TERRAIN_MUD, TERRAIN_LAVA, TERRAIN_CHECKPOINT
 )
 from controls import InputController
+from ai_agent import AIAgent
 
 # Initialize pygame
 pygame.init()
@@ -49,6 +50,9 @@ RED = (255, 50, 50)
 GRAY = (100, 100, 100)
 YELLOW = (255, 255, 100)
 DARK_GREEN = (0, 100, 0)
+PURPLE = (180, 50, 255)
+ORANGE = (255, 165, 0)
+CYAN = (0, 255, 255)
 
 # Setup screen
 screen = pygame.display.set_mode((TOTAL_WINDOW_WIDTH, TOTAL_WINDOW_HEIGHT))
@@ -80,12 +84,12 @@ wall_sprite = load_sprite("wall.png")
 class Player:
     """Player that navigates the maze"""
 
-    def __init__(self, x, y, tile_size, sprite=None):
+    def __init__(self, x, y, tile_size, sprite=None, color=BLUE):
         self.tile_x = x
         self.tile_y = y
         self.tile_size = tile_size
         self.speed = 1  # Tiles per move
-        self.color = BLUE
+        self.color = color
         self.sprite = sprite
         self.total_cost = 0  # Track total movement cost
         self.exploration_cost = 0  # Total exploration cost (for multi-goal mode)
@@ -189,11 +193,15 @@ def draw_maze(screen, maze, tile_size):
                 screen.blit(empty_sprite, rect)
 
 
-def draw_ui(screen, width, height, moves, total_cost, won, game_mode='explore', player=None, num_checkpoints=3):
+def draw_ui(screen, width, height, moves, total_cost, won, game_mode='explore', player=None, num_checkpoints=3, player_mode='solo', ai_agents=None, winner=None):
     """Draw the UI elements on the right side of the screen."""
     font_title = pygame.font.Font(None, 48)
     font_text = pygame.font.Font(None, 32)
     font_small = pygame.font.Font(None, 28)
+    font_tiny = pygame.font.Font(None, 22)
+
+    if ai_agents is None:
+        ai_agents = []
 
     # UI starts after the maze display area (right side)
     ui_x_start = MAZE_DISPLAY_WIDTH
@@ -212,74 +220,126 @@ def draw_ui(screen, width, height, moves, total_cost, won, game_mode='explore', 
     title_rect = title_text.get_rect(centerx=ui_x_start + UI_WIDTH // 2, y=y_pos)
     screen.blit(title_text, title_rect)
 
-    # Moves counter
-    y_pos += 100
-    moves_label = font_text.render("Moves:", True, WHITE)
-    moves_label_rect = moves_label.get_rect(centerx=ui_x_start + UI_WIDTH // 2, y=y_pos)
-    screen.blit(moves_label, moves_label_rect)
-
-    y_pos += 45
-    moves_text = font_title.render(str(moves), True, GREEN)
-    moves_rect = moves_text.get_rect(centerx=ui_x_start + UI_WIDTH // 2, y=y_pos)
-    screen.blit(moves_text, moves_rect)
-
-    # Total cost
-    y_pos += 70
-    cost_label = font_text.render("Total Cost:", True, WHITE)
-    cost_label_rect = cost_label.get_rect(centerx=ui_x_start + UI_WIDTH // 2, y=y_pos)
-    screen.blit(cost_label, cost_label_rect)
-
-    y_pos += 45
-    cost_text = font_title.render(str(total_cost), True, YELLOW)
-    cost_rect = cost_text.get_rect(centerx=ui_x_start + UI_WIDTH // 2, y=y_pos)
-    screen.blit(cost_text, cost_rect)
-
-    # Multi-goal mode specific UI
-    if game_mode == 'multi-goal' and player:
-        # Checkpoints collected
+    # Competitive mode UI
+    if player_mode == 'competitive':
         y_pos += 70
-        checkpoint_label = font_text.render("Checkpoints:", True, WHITE)
-        checkpoint_label_rect = checkpoint_label.get_rect(centerx=ui_x_start + UI_WIDTH // 2, y=y_pos)
-        screen.blit(checkpoint_label, checkpoint_label_rect)
+        mode_text = font_small.render("COMPETITIVE MODE", True, RED)
+        mode_rect = mode_text.get_rect(centerx=ui_x_start + UI_WIDTH // 2, y=y_pos)
+        screen.blit(mode_text, mode_rect)
 
-        y_pos += 45
-        checkpoint_text = font_title.render(f"{player.checkpoints_collected}/{num_checkpoints}", True, (255, 200, 0))
-        checkpoint_rect = checkpoint_text.get_rect(centerx=ui_x_start + UI_WIDTH // 2, y=y_pos)
-        screen.blit(checkpoint_text, checkpoint_rect)
+        # Player stats
+        y_pos += 50
+        player_label = font_text.render("You:", True, BLUE)
+        player_label_rect = player_label.get_rect(x=ui_x_start + 30, y=y_pos)
+        screen.blit(player_label, player_label_rect)
 
-        # Exploration cost
-        y_pos += 70
-        explore_label = font_text.render("Exploration Cost:", True, WHITE)
-        explore_label_rect = explore_label.get_rect(centerx=ui_x_start + UI_WIDTH // 2, y=y_pos)
-        screen.blit(explore_label, explore_label_rect)
-
-        y_pos += 45
-        explore_text = font_title.render(str(player.exploration_cost), True, (100, 200, 255))
-        explore_rect = explore_text.get_rect(centerx=ui_x_start + UI_WIDTH // 2, y=y_pos)
-        screen.blit(explore_text, explore_rect)
-
-    # Terrain legend
-    y_pos += 90
-    legend_title = font_text.render("Terrain Costs:", True, WHITE)
-    legend_rect = legend_title.get_rect(centerx=ui_x_start + UI_WIDTH // 2, y=y_pos)
-    screen.blit(legend_title, legend_rect)
-
-    y_pos += 40
-    terrain_info = [
-        ("Grass: 1", GREEN),
-        ("Water: 3", BLUE),
-        ("Mud: 5", (139, 69, 19)),
-        ("Lava: Impassable", RED)
-    ]
-    for terrain, color in terrain_info:
-        terrain_text = font_small.render(terrain, True, color)
-        terrain_rect = terrain_text.get_rect(centerx=ui_x_start + UI_WIDTH // 2, y=y_pos)
-        screen.blit(terrain_text, terrain_rect)
         y_pos += 35
+        player_stats = font_small.render(f"Moves: {moves}  Cost: {total_cost}", True, WHITE)
+        player_stats_rect = player_stats.get_rect(x=ui_x_start + 50, y=y_pos)
+        screen.blit(player_stats, player_stats_rect)
+
+        # AI agents stats
+        y_pos += 50
+        for ai in ai_agents:
+            status = "FINISHED!" if ai.finished else "Running"
+            ai_label = font_text.render(f"{ai.name}:", True, ai.color)
+            ai_label_rect = ai_label.get_rect(x=ui_x_start + 30, y=y_pos)
+            screen.blit(ai_label, ai_label_rect)
+
+            y_pos += 30
+            ai_stats = font_tiny.render(f"Moves: {ai.moves}  Cost: {ai.total_cost}", True, WHITE)
+            ai_stats_rect = ai_stats.get_rect(x=ui_x_start + 50, y=y_pos)
+            screen.blit(ai_stats, ai_stats_rect)
+
+            y_pos += 25
+            ai_status = font_tiny.render(status, True, GREEN if ai.finished else GRAY)
+            ai_status_rect = ai_status.get_rect(x=ui_x_start + 50, y=y_pos)
+            screen.blit(ai_status, ai_status_rect)
+
+            y_pos += 35
+
+        # Winner announcement
+        if won and winner:
+            y_pos += 20
+            winner_color = BLUE if winner == "Player" else RED
+            win_text = font_title.render(f"{winner} WINS!", True, winner_color)
+            win_rect = win_text.get_rect(centerx=ui_x_start + UI_WIDTH // 2, y=y_pos)
+            screen.blit(win_text, win_rect)
+            y_pos += 70
+
+    else:
+        # Solo mode UI (original)
+        # Moves counter
+        y_pos += 100
+        moves_label = font_text.render("Moves:", True, WHITE)
+        moves_label_rect = moves_label.get_rect(centerx=ui_x_start + UI_WIDTH // 2, y=y_pos)
+        screen.blit(moves_label, moves_label_rect)
+
+        y_pos += 45
+        moves_text = font_title.render(str(moves), True, GREEN)
+        moves_rect = moves_text.get_rect(centerx=ui_x_start + UI_WIDTH // 2, y=y_pos)
+        screen.blit(moves_text, moves_rect)
+
+        # Total cost
+        y_pos += 70
+        cost_label = font_text.render("Total Cost:", True, WHITE)
+        cost_label_rect = cost_label.get_rect(centerx=ui_x_start + UI_WIDTH // 2, y=y_pos)
+        screen.blit(cost_label, cost_label_rect)
+
+        y_pos += 45
+        cost_text = font_title.render(str(total_cost), True, YELLOW)
+        cost_rect = cost_text.get_rect(centerx=ui_x_start + UI_WIDTH // 2, y=y_pos)
+        screen.blit(cost_text, cost_rect)
+
+        # Multi-goal mode specific UI
+        if game_mode == 'multi-goal' and player:
+            # Checkpoints collected
+            y_pos += 70
+            checkpoint_label = font_text.render("Checkpoints:", True, WHITE)
+            checkpoint_label_rect = checkpoint_label.get_rect(centerx=ui_x_start + UI_WIDTH // 2, y=y_pos)
+            screen.blit(checkpoint_label, checkpoint_label_rect)
+
+            y_pos += 45
+            checkpoint_text = font_title.render(f"{player.checkpoints_collected}/{num_checkpoints}", True, (255, 200, 0))
+            checkpoint_rect = checkpoint_text.get_rect(centerx=ui_x_start + UI_WIDTH // 2, y=y_pos)
+            screen.blit(checkpoint_text, checkpoint_rect)
+
+            # Exploration cost
+            y_pos += 70
+            explore_label = font_text.render("Exploration Cost:", True, WHITE)
+            explore_label_rect = explore_label.get_rect(centerx=ui_x_start + UI_WIDTH // 2, y=y_pos)
+            screen.blit(explore_label, explore_label_rect)
+
+            y_pos += 45
+            explore_text = font_title.render(str(player.exploration_cost), True, (100, 200, 255))
+            explore_rect = explore_text.get_rect(centerx=ui_x_start + UI_WIDTH // 2, y=y_pos)
+            screen.blit(explore_text, explore_rect)
+
+        # Terrain legend
+        y_pos += 90
+
+    # Terrain legend (for both modes)
+    if player_mode == 'solo' or y_pos < height - 250:
+        legend_title = font_text.render("Terrain Costs:", True, WHITE)
+        legend_rect = legend_title.get_rect(centerx=ui_x_start + UI_WIDTH // 2, y=y_pos)
+        screen.blit(legend_title, legend_rect)
+
+        y_pos += 40
+        terrain_info = [
+            ("Grass: 1", GREEN),
+            ("Water: 3", BLUE),
+            ("Mud: 5", (139, 69, 19)),
+            ("Lava: Impassable", RED)
+        ]
+        for terrain, color in terrain_info:
+            terrain_text = font_small.render(terrain, True, color)
+            terrain_rect = terrain_text.get_rect(centerx=ui_x_start + UI_WIDTH // 2, y=y_pos)
+            screen.blit(terrain_text, terrain_rect)
+            y_pos += 35
 
     # Win message or instructions
     y_pos += 50
-    if won:
+    if won and player_mode == 'solo':
         win_text = font_title.render("YOU WIN!", True, YELLOW)
         win_rect = win_text.get_rect(centerx=ui_x_start + UI_WIDTH // 2, y=y_pos)
         screen.blit(win_text, win_rect)
@@ -288,7 +348,7 @@ def draw_ui(screen, width, height, moves, total_cost, won, game_mode='explore', 
         restart_text = font_text.render("Press R to restart", True, WHITE)
         restart_rect = restart_text.get_rect(centerx=ui_x_start + UI_WIDTH // 2, y=y_pos)
         screen.blit(restart_text, restart_rect)
-    else:
+    elif not won:
         # Controls
         controls_title = font_text.render("Controls:", True, WHITE)
         controls_rect = controls_title.get_rect(centerx=ui_x_start + UI_WIDTH // 2, y=y_pos)
@@ -393,13 +453,14 @@ def spawn_dynamic_obstacles(maze, player, moves):
                 maze[y][x] = TERRAIN_WATER
 
 
-def start(goal_placement='corner', game_mode='explore', num_checkpoints=5):
+def start(goal_placement='corner', game_mode='explore', num_checkpoints=5, player_mode='solo'):
     """Start the game
 
     Args:
         goal_placement: Where to place the goal ('corner' or 'center')
         game_mode: Game mode ('explore', 'dynamic', or 'multi-goal')
         num_checkpoints: Number of checkpoints for multi-goal mode
+        player_mode: Player mode ('solo' or 'competitive')
     """
     # Generate maze
     maze = generate_maze(MAZE_WIDTH, MAZE_HEIGHT, goal_placement, game_mode, num_checkpoints)
@@ -413,7 +474,22 @@ def start(goal_placement='corner', game_mode='explore', num_checkpoints=5):
     pygame.draw.circle(player_sprite, BLUE, (TILE_SIZE // 2, TILE_SIZE // 2), TILE_SIZE // 3)
     pygame.draw.circle(player_sprite, WHITE, (TILE_SIZE // 2, TILE_SIZE // 2), TILE_SIZE // 3, 2)
 
-    player = Player(start_x, start_y, TILE_SIZE, player_sprite)
+    player = Player(start_x, start_y, TILE_SIZE, player_sprite, BLUE)
+
+    # Create AI agents in competitive mode
+    ai_agents = []
+    if player_mode == 'competitive':
+        # Create one AI opponent starting at the same position as the player
+        ai_color = RED
+        ai_name = "AI Opponent"
+
+        # AI starts at the same position as the player
+        ai_x = start_x
+        ai_y = start_y
+
+        ai_agent = AIAgent(ai_x, ai_y, TILE_SIZE, ai_name, ai_color)
+        ai_agent.calculate_path(maze)  # Calculate initial path
+        ai_agents.append(ai_agent)
 
     # Create input controller
     input_controller = InputController(TILE_SIZE)
@@ -421,24 +497,64 @@ def start(goal_placement='corner', game_mode='explore', num_checkpoints=5):
     moves = 0
     won = False
 
-    loop(maze, player, input_controller, moves, won, goal_placement, game_mode, num_checkpoints)
+    loop(maze, player, input_controller, moves, won, goal_placement, game_mode, num_checkpoints, player_mode, ai_agents)
     print("=" * 50)
     print("PYGAME STOPPED".center(50))
     print("=" * 50)
 
 
-def loop(maze, player, input_controller, moves, won, goal_placement, game_mode='explore', num_checkpoints=3):
+def loop(maze, player, input_controller, moves, won, goal_placement, game_mode='explore', num_checkpoints=3, player_mode='solo', ai_agents=None):
     """Main game loop"""
     run = True
+    if ai_agents is None:
+        ai_agents = []
+
+    # For visualizing AI moves
+    ai_animation_queue = []  # Queue of AI agents to animate
+    ai_animation_delay = 0  # Delay counter for smoother animation
+    winner = None  # Track who won in competitive mode
 
     while run:
         clock.tick(60)  # 60 FPS
 
+        # Process AI animation queue (in competitive mode)
+        if player_mode == 'competitive' and ai_animation_queue and not won:
+            ai_animation_delay += 1
+
+            # Make AI moves at a slower pace for visibility
+            if ai_animation_delay >= 15:  # Delay between AI moves
+                ai_animation_delay = 0
+
+                if ai_animation_queue:
+                    current_ai = ai_animation_queue[0]
+
+                    # Make one move
+                    moved = current_ai.make_move(maze)
+
+                    # Check if this AI won
+                    if current_ai.finished and winner is None:
+                        winner = current_ai.name
+                        won = True
+                        print(f"\n🏁 {current_ai.name} wins! 🏁")
+                        print(f"Moves: {current_ai.moves}")
+                        print(f"Total Cost: {current_ai.total_cost}")
+
+                    # Always remove AI from queue after one move (turn-based)
+                    ai_animation_queue.pop(0)
+
         # Update mouse movement (if mouse is held)
-        if not won:
+        if not won and not ai_animation_queue:  # Don't allow player movement during AI animation
             mouse_move_cost = input_controller.update_mouse_movement(player, maze, delay_frames=5)
             if mouse_move_cost > 0:
                 moves += 1
+
+                # After player moves in competitive mode, queue AI moves
+                if player_mode == 'competitive':
+                    for ai in ai_agents:
+                        if not ai.finished and ai not in ai_animation_queue:
+                            ai.calculate_path(maze)  # Recalculate path after player moves
+                            if ai.path:
+                                ai_animation_queue.append(ai)
 
                 # Dynamic mode: Spawn obstacles as player moves
                 if game_mode == 'dynamic':
@@ -457,9 +573,10 @@ def loop(maze, player, input_controller, moves, won, goal_placement, game_mode='
                 if game_mode == 'multi-goal':
                     win_condition = win_condition and player.checkpoints_collected >= num_checkpoints
 
-                if win_condition:
+                if win_condition and winner is None:
                     won = True
-                    print(f"\n🎉 Congratulations! You won! 🎉")
+                    winner = "Player"
+                    print(f"\n🎉 You won! 🎉")
                     print(f"Moves: {moves}")
                     if game_mode == 'multi-goal':
                         print(f"Final Cost: {player.total_cost}")
@@ -476,11 +593,18 @@ def loop(maze, player, input_controller, moves, won, goal_placement, game_mode='
         # Draw path visualization (if mouse is held)
         input_controller.draw_path(screen, TILE_SIZE)
 
+        # Draw AI agents and their paths (in competitive mode)
+        if player_mode == 'competitive':
+            for ai in ai_agents:
+                if not ai.finished:
+                    ai.draw_path(screen, TILE_SIZE)
+                ai.draw(screen)
+
         # Draw player
         player.draw(screen)
 
         # Draw UI
-        draw_ui(screen, TOTAL_WINDOW_WIDTH, TOTAL_WINDOW_HEIGHT, moves, player.total_cost, won, game_mode, player, num_checkpoints)
+        draw_ui(screen, TOTAL_WINDOW_WIDTH, TOTAL_WINDOW_HEIGHT, moves, player.total_cost, won, game_mode, player, num_checkpoints, player_mode, ai_agents, winner)
 
         # Handle events
         for event in pygame.event.get():
@@ -488,15 +612,23 @@ def loop(maze, player, input_controller, moves, won, goal_placement, game_mode='
                 run = False
 
             # Handle mouse input
-            if not won:
+            if not won and not ai_animation_queue:
                 input_controller.handle_mouse_input(event, player, maze)
 
             # Handle keyboard input
-            if not won:
+            if not won and not ai_animation_queue:  # Don't allow input during AI animation
                 move_cost = input_controller.handle_keyboard_input(event, player, maze)
 
                 if move_cost > 0:
                     moves += 1
+
+                    # After player moves in competitive mode, queue AI moves
+                    if player_mode == 'competitive':
+                        for ai in ai_agents:
+                            if not ai.finished and ai not in ai_animation_queue:
+                                ai.calculate_path(maze)  # Recalculate path after player moves
+                                if ai.path:
+                                    ai_animation_queue.append(ai)
 
                     # Dynamic mode: Spawn obstacles as player moves
                     if game_mode == 'dynamic':
@@ -515,9 +647,10 @@ def loop(maze, player, input_controller, moves, won, goal_placement, game_mode='
                     if game_mode == 'multi-goal':
                         win_condition = win_condition and player.checkpoints_collected >= num_checkpoints
 
-                    if win_condition:
+                    if win_condition and winner is None:
                         won = True
-                        print(f"\n🎉 Congratulations! You won! 🎉")
+                        winner = "Player"
+                        print(f"\n🎉 You won! 🎉")
                         print(f"Moves: {moves}")
                         if game_mode == 'multi-goal':
                             print(f"Final Cost: {player.total_cost}")
@@ -536,10 +669,26 @@ def loop(maze, player, input_controller, moves, won, goal_placement, game_mode='
                 pygame.draw.circle(player_sprite, BLUE, (TILE_SIZE // 2, TILE_SIZE // 2), TILE_SIZE // 3)
                 pygame.draw.circle(player_sprite, WHITE, (TILE_SIZE // 2, TILE_SIZE // 2), TILE_SIZE // 3, 2)
 
-                player = Player(start_x, start_y, TILE_SIZE, player_sprite)
+                player = Player(start_x, start_y, TILE_SIZE, player_sprite, BLUE)
                 input_controller = InputController(TILE_SIZE)
                 moves = 0
                 won = False
+                winner = None
+                ai_animation_queue = []
+
+                # Recreate AI agents in competitive mode
+                if player_mode == 'competitive':
+                    ai_agents = []
+                    # Create one AI opponent starting at the same position
+                    ai_color = RED
+                    ai_name = "AI Opponent"
+
+                    ai_x = start_x
+                    ai_y = start_y
+
+                    ai_agent = AIAgent(ai_x, ai_y, TILE_SIZE, ai_name, ai_color)
+                    ai_agent.calculate_path(maze)
+                    ai_agents.append(ai_agent)
 
             # Return to menu
             if event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:

@@ -600,8 +600,8 @@ if __name__ == "__main__":
 
             # Import and start the main game with settings
             import main
-            # For now, we pass maze_mode as game_mode (competitive mode not yet implemented)
-            main.start(goal_placement, maze_mode)
+            # Pass both maze_mode and player_mode to the game
+            main.start(goal_placement, maze_mode, 5, player_mode)
 
             # Reinitialize pygame after game ends
             pygame.init()
