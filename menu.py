@@ -127,59 +127,135 @@ def draw_controls_screen(screen):
         else:
             y_pos += 20
 
-def draw_settings_screen(screen, goal_placement):
-    """Draw the settings screen"""
+def draw_settings_screen(screen, settings_state):
+    """Draw the settings screen
+
+    Args:
+        settings_state: Dictionary containing all setting states
+    """
     title_font = pygame.font.Font(None, 72)
     text_font = pygame.font.Font(None, 36)
     small_font = pygame.font.Font(None, 28)
+    tiny_font = pygame.font.Font(None, 24)
 
     # Title
     title = title_font.render("Settings", True, YELLOW)
-    title_rect = title.get_rect(center=(MENU_WIDTH // 2, 80))
+    title_rect = title.get_rect(center=(MENU_WIDTH // 2, 50))
     screen.blit(title, title_rect)
 
-    # Goal Placement Setting
-    y_pos = 200
-    setting_label = text_font.render("Goal Placement:", True, WHITE)
-    setting_rect = setting_label.get_rect(center=(MENU_WIDTH // 2, y_pos))
-    screen.blit(setting_label, setting_rect)
+    y_pos = 120
+    clickable_rects = {}
 
-    y_pos += 80
-    corner_text = f"Bottom-Right Corner" if goal_placement == 'center' else "* Bottom-Right Corner"
-    corner_color = WHITE if goal_placement == 'center' else GREEN
-    corner_label = text_font.render(corner_text, True, corner_color)
-    corner_rect = corner_label.get_rect(center=(MENU_WIDTH // 2, y_pos))
-    screen.blit(corner_label, corner_rect)
+    # Goal Mode Section (Collapsible)
+    goal_mode_expanded = settings_state.get('goal_mode_expanded', False)
+    goal_icon = "v" if goal_mode_expanded else ">"
+    goal_header = text_font.render(f"{goal_icon} Goal Mode", True, YELLOW)
+    goal_header_rect = goal_header.get_rect(x=100, y=y_pos)
+    screen.blit(goal_header, goal_header_rect)
+    clickable_rects['goal_mode_toggle'] = pygame.Rect(100, y_pos, 400, 40)
 
-    y_pos += 60
-    center_text = f"Center of Maze" if goal_placement == 'corner' else "* Center of Maze"
-    center_color = WHITE if goal_placement == 'corner' else GREEN
-    center_label = text_font.render(center_text, True, center_color)
-    center_rect = center_label.get_rect(center=(MENU_WIDTH // 2, y_pos))
-    screen.blit(center_label, center_rect)
+    y_pos += 50
 
-    # Description
-    y_pos += 100
-    if goal_placement == 'corner':
-        desc_text = "Maze has one optimal path from start to goal"
+    # Show goal mode options if expanded
+    if goal_mode_expanded:
+        goal_placement = settings_state.get('goal_placement', 'corner')
+
+        # Corner option
+        corner_text = "  * Bottom-Right Corner" if goal_placement == 'corner' else "    Bottom-Right Corner"
+        corner_color = GREEN if goal_placement == 'corner' else WHITE
+        corner_label = small_font.render(corner_text, True, corner_color)
+        screen.blit(corner_label, (120, y_pos))
+        clickable_rects['corner'] = pygame.Rect(120, y_pos - 5, 400, 35)
+        y_pos += 40
+
+        # Center option
+        center_text = "  * Center of Maze" if goal_placement == 'center' else "    Center of Maze"
+        center_color = GREEN if goal_placement == 'center' else WHITE
+        center_label = small_font.render(center_text, True, center_color)
+        screen.blit(center_label, (120, y_pos))
+        clickable_rects['center'] = pygame.Rect(120, y_pos - 5, 400, 35)
+        y_pos += 50
     else:
-        desc_text = "Goal in center creates more route options"
+        y_pos += 10
 
-    desc_label = small_font.render(desc_text, True, GRAY)
-    desc_rect = desc_label.get_rect(center=(MENU_WIDTH // 2, y_pos))
-    screen.blit(desc_label, desc_rect)
+    # Fog of War Toggle
+    fog_enabled = settings_state.get('fog_of_war', False)
+    fog_status = "[ON]" if fog_enabled else "[OFF]"
+    fog_color = GREEN if fog_enabled else GRAY
+    fog_text = text_font.render(f"Fog of War {fog_status}", True, fog_color)
+    screen.blit(fog_text, (100, y_pos))
+    clickable_rects['fog_of_war'] = pygame.Rect(100, y_pos, 400, 40)
+
+    y_pos += 35
+    fog_desc = tiny_font.render("Limited vision - only see nearby tiles", True, GRAY)
+    screen.blit(fog_desc, (120, y_pos))
+    y_pos += 50
+
+    # Energy Constraint Toggle
+    energy_enabled = settings_state.get('energy_constraint', False)
+    energy_status = "[ON]" if energy_enabled else "[OFF]"
+    energy_color = GREEN if energy_enabled else GRAY
+    energy_text = text_font.render(f"Energy Constraint {energy_status}", True, energy_color)
+    screen.blit(energy_text, (100, y_pos))
+    clickable_rects['energy_constraint'] = pygame.Rect(100, y_pos, 450, 40)
+
+    y_pos += 35
+    if energy_enabled:
+        fuel_limit = settings_state.get('fuel_limit', 100)
+        fuel_desc = tiny_font.render(f"Limited fuel: {fuel_limit} cost units (Click +/- to adjust)", True, GRAY)
+        screen.blit(fuel_desc, (120, y_pos))
+
+        # Fuel adjustment buttons
+        minus_btn = small_font.render("[-]", True, WHITE)
+        screen.blit(minus_btn, (120, y_pos + 25))
+        clickable_rects['fuel_decrease'] = pygame.Rect(120, y_pos + 25, 35, 30)
+
+        fuel_value = text_font.render(str(fuel_limit), True, YELLOW)
+        screen.blit(fuel_value, (170, y_pos + 20))
+
+        plus_btn = small_font.render("[+]", True, WHITE)
+        screen.blit(plus_btn, (240, y_pos + 25))
+        clickable_rects['fuel_increase'] = pygame.Rect(240, y_pos + 25, 35, 30)
+
+        y_pos += 60
+    else:
+        energy_desc = tiny_font.render("Limited fuel cost for pathfinding", True, GRAY)
+        screen.blit(energy_desc, (120, y_pos))
+        y_pos += 50
+
+    # Multi-Agent Mode Toggle
+    multi_agent_enabled = settings_state.get('multi_agent', False)
+    multi_status = "[ON]" if multi_agent_enabled else "[OFF]"
+    multi_color = GREEN if multi_agent_enabled else GRAY
+    multi_text = text_font.render(f"Multi-Agent Mode {multi_status}", True, multi_color)
+    screen.blit(multi_text, (100, y_pos))
+    clickable_rects['multi_agent'] = pygame.Rect(100, y_pos, 450, 40)
+
+    y_pos += 35
+    multi_desc = tiny_font.render("Several AIs compete for the same goal", True, GRAY)
+    screen.blit(multi_desc, (120, y_pos))
+    y_pos += 50
+
+    # Algorithm Comparison Dashboard Toggle
+    algo_enabled = settings_state.get('algo_comparison', False)
+    algo_status = "[ON]" if algo_enabled else "[OFF]"
+    algo_color = GREEN if algo_enabled else GRAY
+    algo_text = text_font.render(f"Algorithm Comparison {algo_status}", True, algo_color)
+    screen.blit(algo_text, (100, y_pos))
+    clickable_rects['algo_comparison'] = pygame.Rect(100, y_pos, 500, 40)
+
+    y_pos += 35
+    algo_desc = tiny_font.render("Visualize runtime and exploration difference between BFS, Dijkstra, and A*", True, GRAY)
+    screen.blit(algo_desc, (120, y_pos))
+    y_pos += 50
 
     # Instructions
-    y_pos += 80
-    inst_text = "Click on an option to select it"
-    inst_label = text_font.render(inst_text, True, GRAY)
-    inst_rect = inst_label.get_rect(center=(MENU_WIDTH // 2, y_pos))
-    screen.blit(inst_label, inst_rect)
+    y_pos += 20
+    inst_text = small_font.render("Click on settings to toggle them", True, GRAY)
+    inst_rect = inst_text.get_rect(center=(MENU_WIDTH // 2, y_pos))
+    screen.blit(inst_text, inst_rect)
 
-    return {
-        'corner': pygame.Rect(MENU_WIDTH // 2 - 250, 280 - 30, 500, 60),
-        'center': pygame.Rect(MENU_WIDTH // 2 - 250, 340 - 30, 500, 60)
-    }
+    return clickable_rects
 
 
 def draw_game_mode_screen(screen, game_mode):
@@ -253,6 +329,17 @@ def show_menu():
     # Game settings
     goal_placement = 'corner'  # Default: bottom-right corner
     game_mode = 'explore'  # Default: explore mode
+
+    # Settings state dictionary
+    settings_state = {
+        'goal_placement': 'corner',
+        'goal_mode_expanded': False,
+        'fog_of_war': False,
+        'energy_constraint': False,
+        'fuel_limit': 100,
+        'multi_agent': False,
+        'algo_comparison': False
+    }
 
     # Create buttons
     button_width = 300
@@ -355,18 +442,49 @@ def show_menu():
                 current_screen = "main"
 
             if continue_button_right.is_clicked(mouse_pos, mouse_click):
+                # Sync goal_placement from settings_state
+                goal_placement = settings_state['goal_placement']
                 return ("start", goal_placement, game_mode)  # Start the game
 
         elif current_screen == "settings":
             # Draw settings screen
-            option_rects = draw_settings_screen(screen, goal_placement)
+            option_rects = draw_settings_screen(screen, settings_state)
 
             # Check for clicks on settings options
             if mouse_click:
-                if option_rects['corner'].collidepoint(mouse_pos):
-                    goal_placement = 'corner'
-                elif option_rects['center'].collidepoint(mouse_pos):
-                    goal_placement = 'center'
+                # Goal mode toggle
+                if 'goal_mode_toggle' in option_rects and option_rects['goal_mode_toggle'].collidepoint(mouse_pos):
+                    settings_state['goal_mode_expanded'] = not settings_state['goal_mode_expanded']
+
+                # Goal placement options (only if expanded)
+                if settings_state['goal_mode_expanded']:
+                    if 'corner' in option_rects and option_rects['corner'].collidepoint(mouse_pos):
+                        settings_state['goal_placement'] = 'corner'
+                    elif 'center' in option_rects and option_rects['center'].collidepoint(mouse_pos):
+                        settings_state['goal_placement'] = 'center'
+
+                # Fog of War toggle
+                if 'fog_of_war' in option_rects and option_rects['fog_of_war'].collidepoint(mouse_pos):
+                    settings_state['fog_of_war'] = not settings_state['fog_of_war']
+
+                # Energy Constraint toggle
+                if 'energy_constraint' in option_rects and option_rects['energy_constraint'].collidepoint(mouse_pos):
+                    settings_state['energy_constraint'] = not settings_state['energy_constraint']
+
+                # Fuel adjustment (only if energy constraint is enabled)
+                if settings_state['energy_constraint']:
+                    if 'fuel_decrease' in option_rects and option_rects['fuel_decrease'].collidepoint(mouse_pos):
+                        settings_state['fuel_limit'] = max(10, settings_state['fuel_limit'] - 10)
+                    elif 'fuel_increase' in option_rects and option_rects['fuel_increase'].collidepoint(mouse_pos):
+                        settings_state['fuel_limit'] = min(500, settings_state['fuel_limit'] + 10)
+
+                # Multi-Agent Mode toggle
+                if 'multi_agent' in option_rects and option_rects['multi_agent'].collidepoint(mouse_pos):
+                    settings_state['multi_agent'] = not settings_state['multi_agent']
+
+                # Algorithm Comparison toggle
+                if 'algo_comparison' in option_rects and option_rects['algo_comparison'].collidepoint(mouse_pos):
+                    settings_state['algo_comparison'] = not settings_state['algo_comparison']
 
             # Update and draw back button
             back_button.update(mouse_pos)
