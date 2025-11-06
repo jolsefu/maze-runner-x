@@ -297,7 +297,8 @@ def draw_ui(screen, width, height, moves, total_cost, won, game_mode='explore', 
         y_pos += 40
         controls = [
             "WASD/Arrows - Move",
-            "R - New Maze"
+            "R - New Maze",
+            "ESC - Return to Menu"
         ]
         for control in controls:
             control_text = font_text.render(control, True, WHITE)
@@ -540,10 +541,13 @@ def loop(maze, player, input_controller, moves, won, goal_placement, game_mode='
                 moves = 0
                 won = False
 
+            # Return to menu
+            if event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
+                run = False  # Exit game loop to return to menu
+
         pygame.display.flip()
 
     pygame.quit()
-    sys.exit()
 
 
 if __name__ == "__main__":

@@ -258,69 +258,139 @@ def draw_settings_screen(screen, settings_state):
     return clickable_rects
 
 
-def draw_game_mode_screen(screen, game_mode):
-    """Draw the game mode selection screen"""
+def draw_game_mode_screen(screen, maze_mode, player_mode):
+    """Draw the maze mode and player mode selection screen side by side"""
     title_font = pygame.font.Font(None, 72)
     text_font = pygame.font.Font(None, 36)
     small_font = pygame.font.Font(None, 28)
+    tiny_font = pygame.font.Font(None, 24)
 
     # Title
-    title = title_font.render("Select Game Mode", True, YELLOW)
-    title_rect = title.get_rect(center=(MENU_WIDTH // 2, 80))
+    title = title_font.render("Select Mode", True, YELLOW)
+    title_rect = title.get_rect(center=(MENU_WIDTH // 2, 50))
     screen.blit(title, title_rect)
 
-    # Game Mode Options
-    y_pos = 200
+    # Calculate left and right column positions
+    left_col_x = MENU_WIDTH // 4
+    right_col_x = 3 * MENU_WIDTH // 4
+
+    y_pos = 150
+
+    # LEFT COLUMN: Maze Mode Section
+    maze_mode_title = text_font.render("Maze Mode", True, YELLOW)
+    maze_mode_title_rect = maze_mode_title.get_rect(center=(left_col_x, y_pos))
+    screen.blit(maze_mode_title, maze_mode_title_rect)
+
+    left_y = y_pos + 60
 
     # Explore Mode
-    explore_text = "Explore Mode" if game_mode != 'explore' else "* Explore Mode"
-    explore_color = WHITE if game_mode != 'explore' else GREEN
+    explore_text = "* Explore" if maze_mode == 'explore' else "Explore"
+    explore_color = GREEN if maze_mode == 'explore' else WHITE
     explore_label = text_font.render(explore_text, True, explore_color)
-    explore_rect = explore_label.get_rect(center=(MENU_WIDTH // 2, y_pos))
+    explore_rect = explore_label.get_rect(center=(left_col_x, left_y))
     screen.blit(explore_label, explore_rect)
 
-    y_pos += 40
-    explore_desc = small_font.render("Default Static Maze - Navigate through fixed obstacles", True, GRAY)
-    explore_desc_rect = explore_desc.get_rect(center=(MENU_WIDTH // 2, y_pos))
+    left_y += 35
+    explore_desc = tiny_font.render("Static maze with", True, GRAY)
+    explore_desc_rect = explore_desc.get_rect(center=(left_col_x, left_y))
     screen.blit(explore_desc, explore_desc_rect)
+    left_y += 22
+    explore_desc2 = tiny_font.render("fixed obstacles", True, GRAY)
+    explore_desc2_rect = explore_desc2.get_rect(center=(left_col_x, left_y))
+    screen.blit(explore_desc2, explore_desc2_rect)
 
     # Dynamic Mode
-    y_pos += 90
-    dynamic_text = "Dynamic Mode" if game_mode != 'dynamic' else "* Dynamic Mode"
-    dynamic_color = WHITE if game_mode != 'dynamic' else GREEN
+    left_y += 60
+    dynamic_text = "* Dynamic" if maze_mode == 'dynamic' else "Dynamic"
+    dynamic_color = GREEN if maze_mode == 'dynamic' else WHITE
     dynamic_label = text_font.render(dynamic_text, True, dynamic_color)
-    dynamic_rect = dynamic_label.get_rect(center=(MENU_WIDTH // 2, y_pos))
+    dynamic_rect = dynamic_label.get_rect(center=(left_col_x, left_y))
     screen.blit(dynamic_label, dynamic_rect)
 
-    y_pos += 40
-    dynamic_desc = small_font.render("Obstacles Appear Randomly - The maze changes as you play", True, GRAY)
-    dynamic_desc_rect = dynamic_desc.get_rect(center=(MENU_WIDTH // 2, y_pos))
+    left_y += 35
+    dynamic_desc = tiny_font.render("Obstacles appear", True, GRAY)
+    dynamic_desc_rect = dynamic_desc.get_rect(center=(left_col_x, left_y))
     screen.blit(dynamic_desc, dynamic_desc_rect)
+    left_y += 22
+    dynamic_desc2 = tiny_font.render("randomly as you play", True, GRAY)
+    dynamic_desc2_rect = dynamic_desc2.get_rect(center=(left_col_x, left_y))
+    screen.blit(dynamic_desc2, dynamic_desc2_rect)
 
     # Multi-Goal Mode
-    y_pos += 90
-    multi_text = "Multi-Goal Mode" if game_mode != 'multi-goal' else "* Multi-Goal Mode"
-    multi_color = WHITE if game_mode != 'multi-goal' else GREEN
+    left_y += 60
+    multi_text = "* Multi-Goal" if maze_mode == 'multi-goal' else "Multi-Goal"
+    multi_color = GREEN if maze_mode == 'multi-goal' else WHITE
     multi_label = text_font.render(multi_text, True, multi_color)
-    multi_rect = multi_label.get_rect(center=(MENU_WIDTH // 2, y_pos))
+    multi_rect = multi_label.get_rect(center=(left_col_x, left_y))
     screen.blit(multi_label, multi_rect)
 
-    y_pos += 40
-    multi_desc = small_font.render("Collect All Checkpoints - Cost resets at each checkpoint", True, GRAY)
-    multi_desc_rect = multi_desc.get_rect(center=(MENU_WIDTH // 2, y_pos))
+    left_y += 35
+    multi_desc = tiny_font.render("Collect checkpoints,", True, GRAY)
+    multi_desc_rect = multi_desc.get_rect(center=(left_col_x, left_y))
     screen.blit(multi_desc, multi_desc_rect)
+    left_y += 22
+    multi_desc2 = tiny_font.render("cost resets at each", True, GRAY)
+    multi_desc2_rect = multi_desc2.get_rect(center=(left_col_x, left_y))
+    screen.blit(multi_desc2, multi_desc2_rect)
+
+    # RIGHT COLUMN: Game Mode Section (Solo/Competitive)
+    right_y = y_pos
+    player_mode_title = text_font.render("Game Mode", True, YELLOW)
+    player_mode_title_rect = player_mode_title.get_rect(center=(right_col_x, right_y))
+    screen.blit(player_mode_title, player_mode_title_rect)
+
+    right_y += 60
+
+    # Solo Mode
+    solo_text = "* Solo" if player_mode == 'solo' else "Solo"
+    solo_color = GREEN if player_mode == 'solo' else WHITE
+    solo_label = text_font.render(solo_text, True, solo_color)
+    solo_rect = solo_label.get_rect(center=(right_col_x, right_y))
+    screen.blit(solo_label, solo_rect)
+
+    right_y += 35
+    solo_desc = tiny_font.render("Play alone and", True, GRAY)
+    solo_desc_rect = solo_desc.get_rect(center=(right_col_x, right_y))
+    screen.blit(solo_desc, solo_desc_rect)
+    right_y += 22
+    solo_desc2 = tiny_font.render("solve the maze", True, GRAY)
+    solo_desc2_rect = solo_desc2.get_rect(center=(right_col_x, right_y))
+    screen.blit(solo_desc2, solo_desc2_rect)
+
+    # Competitive Mode
+    right_y += 60
+    comp_text = "* Competitive" if player_mode == 'competitive' else "Competitive"
+    comp_color = GREEN if player_mode == 'competitive' else WHITE
+    comp_label = text_font.render(comp_text, True, comp_color)
+    comp_rect = comp_label.get_rect(center=(right_col_x, right_y))
+    screen.blit(comp_label, comp_rect)
+
+    right_y += 35
+    comp_desc = tiny_font.render("Race against", True, GRAY)
+    comp_desc_rect = comp_desc.get_rect(center=(right_col_x, right_y))
+    screen.blit(comp_desc, comp_desc_rect)
+    right_y += 22
+    comp_desc2 = tiny_font.render("AI agents", True, GRAY)
+    comp_desc2_rect = comp_desc2.get_rect(center=(right_col_x, right_y))
+    screen.blit(comp_desc2, comp_desc2_rect)
+
+    # Vertical separator line
+    separator_x = MENU_WIDTH // 2
+    pygame.draw.line(screen, GRAY, (separator_x, 140), (separator_x, 500), 2)
 
     # Instructions
-    y_pos += 100
-    inst_text = "Click on a game mode to select it"
+    inst_y = 720
+    inst_text = "Click on options to select them"
     inst_label = small_font.render(inst_text, True, GRAY)
-    inst_rect = inst_label.get_rect(center=(MENU_WIDTH // 2, y_pos))
+    inst_rect = inst_label.get_rect(center=(MENU_WIDTH // 2, inst_y))
     screen.blit(inst_label, inst_rect)
 
     return {
-        'explore': pygame.Rect(MENU_WIDTH // 2 - 300, 200 - 30, 600, 80),
-        'dynamic': pygame.Rect(MENU_WIDTH // 2 - 300, 330 - 30, 600, 80),
-        'multi-goal': pygame.Rect(MENU_WIDTH // 2 - 300, 460 - 30, 600, 80)
+        'explore': pygame.Rect(left_col_x - 100, 210 - 20, 200, 77),
+        'dynamic': pygame.Rect(left_col_x - 100, 327 - 20, 200, 77),
+        'multi-goal': pygame.Rect(left_col_x - 100, 444 - 20, 200, 77),
+        'solo': pygame.Rect(right_col_x - 100, 210 - 20, 200, 77),
+        'competitive': pygame.Rect(right_col_x - 100, 327 - 20, 200, 77)
     }
 
 
@@ -328,7 +398,8 @@ def show_menu():
     """Display the main menu and handle user input"""
     # Game settings
     goal_placement = 'corner'  # Default: bottom-right corner
-    game_mode = 'explore'  # Default: explore mode
+    maze_mode = 'explore'  # Default: explore mode (renamed from game_mode)
+    player_mode = 'solo'  # Default: solo mode
 
     # Settings state dictionary
     settings_state = {
@@ -414,16 +485,20 @@ def show_menu():
 
         elif current_screen == "game_mode":
             # Draw game mode selection screen
-            option_rects = draw_game_mode_screen(screen, game_mode)
+            option_rects = draw_game_mode_screen(screen, maze_mode, player_mode)
 
-            # Check for clicks on game mode options
+            # Check for clicks on maze mode and player mode options
             if mouse_click:
                 if option_rects['explore'].collidepoint(mouse_pos):
-                    game_mode = 'explore'
+                    maze_mode = 'explore'
                 elif option_rects['dynamic'].collidepoint(mouse_pos):
-                    game_mode = 'dynamic'
+                    maze_mode = 'dynamic'
                 elif option_rects['multi-goal'].collidepoint(mouse_pos):
-                    game_mode = 'multi-goal'
+                    maze_mode = 'multi-goal'
+                elif option_rects['solo'].collidepoint(mouse_pos):
+                    player_mode = 'solo'
+                elif option_rects['competitive'].collidepoint(mouse_pos):
+                    player_mode = 'competitive'
 
             # Update and draw buttons
             back_button.update(mouse_pos)
@@ -444,7 +519,7 @@ def show_menu():
             if continue_button_right.is_clicked(mouse_pos, mouse_click):
                 # Sync goal_placement from settings_state
                 goal_placement = settings_state['goal_placement']
-                return ("start", goal_placement, game_mode)  # Start the game
+                return ("start", goal_placement, maze_mode, player_mode)  # Start the game with both modes
 
         elif current_screen == "settings":
             # Draw settings screen
@@ -513,14 +588,24 @@ def show_menu():
 
 
 if __name__ == "__main__":
-    result = show_menu()
+    while True:  # Loop to return to menu after game ends
+        result = show_menu()
 
-    if result[0] == "start":
-        # Close menu and start the game
-        goal_placement = result[1]
-        game_mode = result[2]
-        pygame.quit()
+        if result[0] == "start":
+            # Close menu and start the game
+            goal_placement = result[1]
+            maze_mode = result[2]
+            player_mode = result[3]
+            pygame.quit()
 
-        # Import and start the main game with settings
-        import main
-        main.start(goal_placement, game_mode)
+            # Import and start the main game with settings
+            import main
+            # For now, we pass maze_mode as game_mode (competitive mode not yet implemented)
+            main.start(goal_placement, maze_mode)
+
+            # Reinitialize pygame after game ends
+            pygame.init()
+            screen = pygame.display.set_mode((MENU_WIDTH, MENU_HEIGHT))
+            pygame.display.set_caption("Maze Runner - Main Menu")
+        else:
+            break  # Exit if user quits from menu
