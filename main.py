@@ -84,7 +84,7 @@ wall_sprite = load_sprite("wall.png")
 class Player:
     """Player that navigates the maze"""
 
-    def __init__(self, x, y, tile_size, sprite=None, color=BLUE):
+    def __init__(self, x, y, tile_size, sprite=None, color=BLUE, energy_limit=None):
         self.tile_x = x
         self.tile_y = y
         self.tile_size = tile_size
@@ -94,9 +94,15 @@ class Player:
         self.total_cost = 0  # Track total movement cost
         self.exploration_cost = 0  # Total exploration cost (for multi-goal mode)
         self.checkpoints_collected = 0  # Number of checkpoints collected
+        self.energy_limit = energy_limit  # Maximum energy allowed (None = unlimited)
+        self.out_of_energy = False  # Flag for energy depletion
 
     def move(self, dx, dy, maze):
         """Move player if the destination is passable, return cost of move"""
+        # Check if out of energy
+        if self.out_of_energy:
+            return 0
+
         new_x = self.tile_x + dx
         new_y = self.tile_y + dy
 
@@ -108,9 +114,18 @@ class Player:
 
         # Check if terrain is passable
         if is_passable(terrain):
+            move_cost = get_terrain_cost(terrain)
+
+            # Check energy constraint
+            if self.energy_limit is not None:
+                if self.total_cost + move_cost > self.energy_limit:
+                    # Not enough energy for this move
+                    self.out_of_energy = True
+                    return 0
+
+            # Execute move
             self.tile_x = new_x
             self.tile_y = new_y
-            move_cost = get_terrain_cost(terrain)
             self.total_cost += move_cost
             return move_cost
         return 0
@@ -265,7 +280,7 @@ def draw_maze(screen, maze, tile_size):
                 screen.blit(empty_sprite, rect)
 
 
-def draw_ui(screen, width, height, moves, total_cost, won, game_mode='explore', player=None, num_checkpoints=3, player_mode='solo', ai_agents=None, winner=None, fog_of_war=False):
+def draw_ui(screen, width, height, moves, total_cost, won, game_mode='explore', player=None, num_checkpoints=3, player_mode='solo', ai_agents=None, winner=None, fog_of_war=False, energy_constraint=False, fuel_limit=100):
     """Draw the UI elements on the right side of the screen."""
     font_title = pygame.font.Font(None, 48)
     font_text = pygame.font.Font(None, 32)
@@ -370,6 +385,29 @@ def draw_ui(screen, width, height, moves, total_cost, won, game_mode='explore', 
         cost_text = font_title.render(str(total_cost), True, YELLOW)
         cost_rect = cost_text.get_rect(centerx=ui_x_start + UI_WIDTH // 2, y=y_pos)
         screen.blit(cost_text, cost_rect)
+
+        # Energy display (if energy constraint is enabled)
+        if energy_constraint and player:
+            y_pos += 70
+            energy_label = font_text.render("Energy Remaining:", True, WHITE)
+            energy_label_rect = energy_label.get_rect(centerx=ui_x_start + UI_WIDTH // 2, y=y_pos)
+            screen.blit(energy_label, energy_label_rect)
+
+            y_pos += 45
+            remaining_energy = max(0, fuel_limit - total_cost)
+            energy_percent = (remaining_energy / fuel_limit) * 100
+
+            # Color based on energy level
+            if energy_percent > 50:
+                energy_color = GREEN
+            elif energy_percent > 25:
+                energy_color = YELLOW
+            else:
+                energy_color = RED
+
+            energy_text = font_title.render(f"{remaining_energy}/{fuel_limit}", True, energy_color)
+            energy_rect = energy_text.get_rect(centerx=ui_x_start + UI_WIDTH // 2, y=y_pos)
+            screen.blit(energy_text, energy_rect)
 
         # Multi-goal mode specific UI
         if game_mode == 'multi-goal' and player:
@@ -513,7 +551,7 @@ def spawn_dynamic_obstacles(maze, player, moves):
                 maze[y][x] = TERRAIN_WATER
 
 
-def start(goal_placement='corner', game_mode='explore', num_checkpoints=5, player_mode='solo', fog_of_war=False):
+def start(goal_placement='corner', game_mode='explore', num_checkpoints=5, player_mode='solo', fog_of_war=False, energy_constraint=False, fuel_limit=100):
     """Start the game
 
     Args:
@@ -522,6 +560,8 @@ def start(goal_placement='corner', game_mode='explore', num_checkpoints=5, playe
         num_checkpoints: Number of checkpoints for multi-goal mode
         player_mode: Player mode ('solo' or 'competitive')
         fog_of_war: Enable fog of war (limited vision)
+        energy_constraint: Enable energy/fuel limit
+        fuel_limit: Maximum fuel/energy available
     """
     # Generate maze
     maze = generate_maze(MAZE_WIDTH, MAZE_HEIGHT, goal_placement, game_mode, num_checkpoints)
@@ -535,7 +575,9 @@ def start(goal_placement='corner', game_mode='explore', num_checkpoints=5, playe
     pygame.draw.circle(player_sprite, BLUE, (TILE_SIZE // 2, TILE_SIZE // 2), TILE_SIZE // 3)
     pygame.draw.circle(player_sprite, WHITE, (TILE_SIZE // 2, TILE_SIZE // 2), TILE_SIZE // 3, 2)
 
-    player = Player(start_x, start_y, TILE_SIZE, player_sprite, BLUE)
+    # Set energy limit if constraint is enabled
+    energy_limit = fuel_limit if energy_constraint else None
+    player = Player(start_x, start_y, TILE_SIZE, player_sprite, BLUE, energy_limit)
 
     # Create AI agents in competitive mode
     ai_agents = []
@@ -548,7 +590,7 @@ def start(goal_placement='corner', game_mode='explore', num_checkpoints=5, playe
         ai_x = start_x
         ai_y = start_y
 
-        ai_agent = AIAgent(ai_x, ai_y, TILE_SIZE, ai_name, ai_color)
+        ai_agent = AIAgent(ai_x, ai_y, TILE_SIZE, ai_name, ai_color, energy_limit)
         ai_agent.calculate_path(maze, fog_of_war)  # Calculate initial path with fog of war awareness
         ai_agents.append(ai_agent)
 
@@ -558,13 +600,13 @@ def start(goal_placement='corner', game_mode='explore', num_checkpoints=5, playe
     moves = 0
     won = False
 
-    loop(maze, player, input_controller, moves, won, goal_placement, game_mode, num_checkpoints, player_mode, ai_agents, fog_of_war)
+    loop(maze, player, input_controller, moves, won, goal_placement, game_mode, num_checkpoints, player_mode, ai_agents, fog_of_war, energy_constraint, fuel_limit)
     print("=" * 50)
     print("PYGAME STOPPED".center(50))
     print("=" * 50)
 
 
-def loop(maze, player, input_controller, moves, won, goal_placement, game_mode='explore', num_checkpoints=3, player_mode='solo', ai_agents=None, fog_of_war=False):
+def loop(maze, player, input_controller, moves, won, goal_placement, game_mode='explore', num_checkpoints=3, player_mode='solo', ai_agents=None, fog_of_war=False, energy_constraint=False, fuel_limit=100):
     """Main game loop"""
     run = True
     if ai_agents is None:
@@ -588,6 +630,7 @@ def loop(maze, player, input_controller, moves, won, goal_placement, game_mode='
     ai_animation_queue = []  # Queue of AI agents to animate
     ai_animation_delay = 0  # Delay counter for smoother animation
     winner = None  # Track who won in competitive mode
+    loser = None  # Track who lost (ran out of energy)
 
     while run:
         clock.tick(60)  # 60 FPS
@@ -608,6 +651,14 @@ def loop(maze, player, input_controller, moves, won, goal_placement, game_mode='
 
                     # Make one move
                     moved = current_ai.make_move(maze)
+
+                    # Check if AI ran out of energy
+                    if energy_constraint and current_ai.out_of_energy and loser is None:
+                        loser = current_ai.name
+                        winner = "Player"  # Player wins if AI runs out of energy
+                        won = True
+                        print(f"\n⚡ {current_ai.name} ran out of energy! ⚡")
+                        print(f"Player wins!")
 
                     # Check if this AI won
                     if current_ai.finished and winner is None:
@@ -645,12 +696,25 @@ def loop(maze, player, input_controller, moves, won, goal_placement, game_mode='
                     maze[player.tile_y][player.tile_x] = TERRAIN_GRASS  # Convert checkpoint to grass
                     print(f"✓ Checkpoint collected! ({player.checkpoints_collected}/{num_checkpoints})")
 
+                # Check if player ran out of energy
+                if energy_constraint and player.out_of_energy and loser is None:
+                    loser = "Player"
+                    won = True
+                    if player_mode == 'competitive':
+                        winner = "AI Opponent"  # AI wins if player runs out of energy
+                        print(f"\n⚡ You ran out of energy! ⚡")
+                        print(f"AI Opponent wins!")
+                    else:
+                        winner = None  # Solo mode - player just loses
+                        print(f"\n⚡ You ran out of energy! ⚡")
+                        print(f"Game Over!")
+
                 # Check if won
                 win_condition = player.is_at_goal(maze)
                 if game_mode == 'multi-goal':
                     win_condition = win_condition and player.checkpoints_collected >= num_checkpoints
 
-                if win_condition and winner is None:
+                if win_condition and winner is None and not player.out_of_energy:
                     won = True
                     winner = "Player"
                     print(f"\n🎉 You won! 🎉")
@@ -700,7 +764,7 @@ def loop(maze, player, input_controller, moves, won, goal_placement, game_mode='
         player.draw(screen)
 
         # Draw UI
-        draw_ui(screen, TOTAL_WINDOW_WIDTH, TOTAL_WINDOW_HEIGHT, moves, player.total_cost, won, game_mode, player, num_checkpoints, player_mode, ai_agents, winner, fog_of_war)
+        draw_ui(screen, TOTAL_WINDOW_WIDTH, TOTAL_WINDOW_HEIGHT, moves, player.total_cost, won, game_mode, player, num_checkpoints, player_mode, ai_agents, winner, fog_of_war, energy_constraint, fuel_limit)
 
         # Handle events
         for event in pygame.event.get():
@@ -737,12 +801,25 @@ def loop(maze, player, input_controller, moves, won, goal_placement, game_mode='
                         maze[player.tile_y][player.tile_x] = TERRAIN_GRASS  # Convert checkpoint to grass
                         print(f"✓ Checkpoint collected! ({player.checkpoints_collected}/{num_checkpoints})")
 
+                    # Check if player ran out of energy
+                    if energy_constraint and player.out_of_energy and loser is None:
+                        loser = "Player"
+                        won = True
+                        if player_mode == 'competitive':
+                            winner = "AI Opponent"  # AI wins if player runs out of energy
+                            print(f"\n⚡ You ran out of energy! ⚡")
+                            print(f"AI Opponent wins!")
+                        else:
+                            winner = None  # Solo mode - player just loses
+                            print(f"\n⚡ You ran out of energy! ⚡")
+                            print(f"Game Over!")
+
                     # Check if won
                     win_condition = player.is_at_goal(maze)
                     if game_mode == 'multi-goal':
                         win_condition = win_condition and player.checkpoints_collected >= num_checkpoints
 
-                    if win_condition and winner is None:
+                    if win_condition and winner is None and not player.out_of_energy:
                         won = True
                         winner = "Player"
                         print(f"\n🎉 You won! 🎉")
@@ -764,11 +841,13 @@ def loop(maze, player, input_controller, moves, won, goal_placement, game_mode='
                 pygame.draw.circle(player_sprite, BLUE, (TILE_SIZE // 2, TILE_SIZE // 2), TILE_SIZE // 3)
                 pygame.draw.circle(player_sprite, WHITE, (TILE_SIZE // 2, TILE_SIZE // 2), TILE_SIZE // 3, 2)
 
-                player = Player(start_x, start_y, TILE_SIZE, player_sprite, BLUE)
+                energy_limit = fuel_limit if energy_constraint else None
+                player = Player(start_x, start_y, TILE_SIZE, player_sprite, BLUE, energy_limit)
                 input_controller = InputController(TILE_SIZE)
                 moves = 0
                 won = False
                 winner = None
+                loser = None
                 ai_animation_queue = []
 
                 # Reset fog of war
@@ -793,7 +872,7 @@ def loop(maze, player, input_controller, moves, won, goal_placement, game_mode='
                     ai_x = start_x
                     ai_y = start_y
 
-                    ai_agent = AIAgent(ai_x, ai_y, TILE_SIZE, ai_name, ai_color)
+                    ai_agent = AIAgent(ai_x, ai_y, TILE_SIZE, ai_name, ai_color, energy_limit)
                     ai_agent.calculate_path(maze, fog_of_war)
                     ai_agents.append(ai_agent)
 

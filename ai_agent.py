@@ -8,7 +8,7 @@ from maze_generation import get_terrain_cost, is_passable, TERRAIN_GOAL
 class AIAgent:
     """AI agent that competes with the player"""
 
-    def __init__(self, x, y, tile_size, name, color):
+    def __init__(self, x, y, tile_size, name, color, energy_limit=None):
         self.tile_x = x
         self.tile_y = y
         self.tile_size = tile_size
@@ -20,6 +20,8 @@ class AIAgent:
         self.moves = 0
         self.explored_tiles = set()  # Tiles the AI has seen (for fog of war)
         self.known_maze = {}  # Stores terrain info for explored tiles (x, y) -> terrain_type
+        self.energy_limit = energy_limit  # Maximum energy allowed (None = unlimited)
+        self.out_of_energy = False  # Flag for energy depletion
 
     def update_vision(self, maze, vision_range=5, fog_of_war=False):
         """Update AI's knowledge of the maze based on current position
@@ -225,16 +227,25 @@ class AIAgent:
 
     def make_move(self, maze):
         """Make one move along the calculated path"""
-        if not self.path or self.finished:
+        if not self.path or self.finished or self.out_of_energy:
             return False
 
         # Get next position
         next_x, next_y = self.path[0]
-        self.path = self.path[1:]  # Remove first element
 
-        # Move to next position
+        # Check energy before moving
         terrain = maze[next_y][next_x]
         move_cost = get_terrain_cost(terrain)
+
+        if self.energy_limit is not None:
+            if self.total_cost + move_cost > self.energy_limit:
+                # Out of energy - can't make this move
+                self.out_of_energy = True
+                self.path = []
+                return False
+
+        # Execute move
+        self.path = self.path[1:]  # Remove first element
         self.total_cost += move_cost
         self.tile_x = next_x
         self.tile_y = next_y
