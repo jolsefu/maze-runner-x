@@ -334,30 +334,13 @@ def draw_settings_screen(screen, settings_state):
         screen.blit(energy_desc, (120, y_pos))
         y_pos += 50
 
-    # Multi-Agent Mode Toggle
-    multi_agent_enabled = settings_state.get('multi_agent', False)
-    multi_status = "[ON]" if multi_agent_enabled else "[OFF]"
-    multi_color = GREEN if multi_agent_enabled else GRAY
-    multi_text = text_font.render(f"Multi-Agent Mode {multi_status}", True, multi_color)
-    screen.blit(multi_text, (100, y_pos))
-    clickable_rects['multi_agent'] = pygame.Rect(100, y_pos, 450, 40)
+    # Instructions
+    y_pos += 20
+    inst_text = small_font.render("Click on settings to toggle them", True, GRAY)
+    inst_rect = inst_text.get_rect(center=(MENU_WIDTH // 2, y_pos))
+    screen.blit(inst_text, inst_rect)
 
-    y_pos += 35
-    multi_desc = tiny_font.render("Several AIs compete for the same goal", True, GRAY)
-    screen.blit(multi_desc, (120, y_pos))
-    y_pos += 50
-
-    # Algorithm Comparison Dashboard Toggle
-    algo_enabled = settings_state.get('algo_comparison', False)
-    algo_status = "[ON]" if algo_enabled else "[OFF]"
-    algo_color = GREEN if algo_enabled else GRAY
-    algo_text = text_font.render(f"Algorithm Comparison {algo_status}", True, algo_color)
-    screen.blit(algo_text, (100, y_pos))
-    clickable_rects['algo_comparison'] = pygame.Rect(100, y_pos, 500, 40)
-
-    y_pos += 35
-    algo_desc = tiny_font.render("Visualize runtime and exploration difference between BFS, Dijkstra, and A*", True, GRAY)
-    screen.blit(algo_desc, (120, y_pos))
+    return clickable_rects
     y_pos += 50
 
     # Instructions
@@ -485,9 +468,43 @@ def draw_game_mode_screen(screen, maze_mode, player_mode):
     comp_desc2_rect = comp_desc2.get_rect(center=(right_col_x, right_y))
     screen.blit(comp_desc2, comp_desc2_rect)
 
+    # Multi-Agent Mode
+    right_y += 60
+    multi_agent_text = "* Multi-Agent" if player_mode == 'multi-agent' else "Multi-Agent"
+    multi_agent_color = GREEN if player_mode == 'multi-agent' else WHITE
+    multi_agent_label = text_font.render(multi_agent_text, True, multi_agent_color)
+    multi_agent_rect = multi_agent_label.get_rect(center=(right_col_x, right_y))
+    screen.blit(multi_agent_label, multi_agent_rect)
+
+    right_y += 35
+    multi_agent_desc = tiny_font.render("Multiple AIs compete", True, GRAY)
+    multi_agent_desc_rect = multi_agent_desc.get_rect(center=(right_col_x, right_y))
+    screen.blit(multi_agent_desc, multi_agent_desc_rect)
+    right_y += 22
+    multi_agent_desc2 = tiny_font.render("for the same goal", True, GRAY)
+    multi_agent_desc2_rect = multi_agent_desc2.get_rect(center=(right_col_x, right_y))
+    screen.blit(multi_agent_desc2, multi_agent_desc2_rect)
+
+    # Algorithm Comparison Mode
+    right_y += 60
+    algo_text = "* Algo Compare" if player_mode == 'algo-compare' else "Algo Compare"
+    algo_color = GREEN if player_mode == 'algo-compare' else WHITE
+    algo_label = small_font.render(algo_text, True, algo_color)
+    algo_rect = algo_label.get_rect(center=(right_col_x, right_y))
+    screen.blit(algo_label, algo_rect)
+
+    right_y += 30
+    algo_desc = tiny_font.render("Compare BFS, Dijkstra", True, GRAY)
+    algo_desc_rect = algo_desc.get_rect(center=(right_col_x, right_y))
+    screen.blit(algo_desc, algo_desc_rect)
+    right_y += 22
+    algo_desc2 = tiny_font.render("and A* algorithms", True, GRAY)
+    algo_desc2_rect = algo_desc2.get_rect(center=(right_col_x, right_y))
+    screen.blit(algo_desc2, algo_desc2_rect)
+
     # Vertical separator line
     separator_x = MENU_WIDTH // 2
-    pygame.draw.line(screen, GRAY, (separator_x, 140), (separator_x, 500), 2)
+    pygame.draw.line(screen, GRAY, (separator_x, 140), (separator_x, 650), 2)
 
     # Instructions
     inst_y = 720
@@ -501,7 +518,9 @@ def draw_game_mode_screen(screen, maze_mode, player_mode):
         'dynamic': pygame.Rect(left_col_x - 100, 327 - 20, 200, 77),
         'multi-goal': pygame.Rect(left_col_x - 100, 444 - 20, 200, 77),
         'solo': pygame.Rect(right_col_x - 100, 210 - 20, 200, 77),
-        'competitive': pygame.Rect(right_col_x - 100, 327 - 20, 200, 77)
+        'competitive': pygame.Rect(right_col_x - 100, 327 - 20, 200, 77),
+        'multi-agent': pygame.Rect(right_col_x - 100, 444 - 20, 200, 77),
+        'algo-compare': pygame.Rect(right_col_x - 100, 561 - 20, 200, 70)
     }
 
 
@@ -518,9 +537,7 @@ def show_menu():
         'goal_mode_expanded': False,
         'fog_of_war': False,
         'energy_constraint': False,
-        'fuel_limit': 100,
-        'multi_agent': False,
-        'algo_comparison': False
+        'fuel_limit': 100
     }
 
     # Create buttons
@@ -616,6 +633,10 @@ def show_menu():
                     player_mode = 'solo'
                 elif option_rects['competitive'].collidepoint(mouse_pos):
                     player_mode = 'competitive'
+                elif option_rects['multi-agent'].collidepoint(mouse_pos):
+                    player_mode = 'multi-agent'
+                elif option_rects['algo-compare'].collidepoint(mouse_pos):
+                    player_mode = 'algo-compare'
 
             # Update and draw buttons
             back_button.update(mouse_pos)
@@ -672,14 +693,6 @@ def show_menu():
                         settings_state['fuel_limit'] = max(10, settings_state['fuel_limit'] - 10)
                     elif 'fuel_increase' in option_rects and option_rects['fuel_increase'].collidepoint(mouse_pos):
                         settings_state['fuel_limit'] = min(500, settings_state['fuel_limit'] + 10)
-
-                # Multi-Agent Mode toggle
-                if 'multi_agent' in option_rects and option_rects['multi_agent'].collidepoint(mouse_pos):
-                    settings_state['multi_agent'] = not settings_state['multi_agent']
-
-                # Algorithm Comparison toggle
-                if 'algo_comparison' in option_rects and option_rects['algo_comparison'].collidepoint(mouse_pos):
-                    settings_state['algo_comparison'] = not settings_state['algo_comparison']
 
             # Update and draw back button
             back_button.update(mouse_pos)
