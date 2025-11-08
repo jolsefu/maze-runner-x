@@ -255,15 +255,16 @@ def draw_settings_screen(screen, settings_state):
     screen.blit(title, title_rect)
 
     y_pos = 120
+    center_x = MENU_WIDTH // 2
     clickable_rects = {}
 
     # Goal Mode Section (Collapsible)
     goal_mode_expanded = settings_state.get('goal_mode_expanded', False)
     goal_icon = "v" if goal_mode_expanded else ">"
     goal_header = text_font.render(f"{goal_icon} Goal Mode", True, YELLOW)
-    goal_header_rect = goal_header.get_rect(x=100, y=y_pos)
+    goal_header_rect = goal_header.get_rect(center=(center_x, y_pos))
     screen.blit(goal_header, goal_header_rect)
-    clickable_rects['goal_mode_toggle'] = pygame.Rect(100, y_pos, 400, 40)
+    clickable_rects['goal_mode_toggle'] = pygame.Rect(center_x - 200, y_pos - 20, 400, 40)
 
     y_pos += 50
 
@@ -272,19 +273,21 @@ def draw_settings_screen(screen, settings_state):
         goal_placement = settings_state.get('goal_placement', 'corner')
 
         # Corner option
-        corner_text = "  * Bottom-Right Corner" if goal_placement == 'corner' else "    Bottom-Right Corner"
+        corner_text = "* Bottom-Right Corner" if goal_placement == 'corner' else "Bottom-Right Corner"
         corner_color = GREEN if goal_placement == 'corner' else WHITE
         corner_label = small_font.render(corner_text, True, corner_color)
-        screen.blit(corner_label, (120, y_pos))
-        clickable_rects['corner'] = pygame.Rect(120, y_pos - 5, 400, 35)
+        corner_rect = corner_label.get_rect(center=(center_x, y_pos))
+        screen.blit(corner_label, corner_rect)
+        clickable_rects['corner'] = pygame.Rect(center_x - 150, y_pos - 15, 300, 35)
         y_pos += 40
 
         # Center option
-        center_text = "  * Center of Maze" if goal_placement == 'center' else "    Center of Maze"
+        center_text = "* Center of Maze" if goal_placement == 'center' else "Center of Maze"
         center_color = GREEN if goal_placement == 'center' else WHITE
         center_label = small_font.render(center_text, True, center_color)
-        screen.blit(center_label, (120, y_pos))
-        clickable_rects['center'] = pygame.Rect(120, y_pos - 5, 400, 35)
+        center_rect = center_label.get_rect(center=(center_x, y_pos))
+        screen.blit(center_label, center_rect)
+        clickable_rects['center'] = pygame.Rect(center_x - 150, y_pos - 15, 300, 35)
         y_pos += 50
     else:
         y_pos += 10
@@ -294,12 +297,14 @@ def draw_settings_screen(screen, settings_state):
     fog_status = "[ON]" if fog_enabled else "[OFF]"
     fog_color = GREEN if fog_enabled else GRAY
     fog_text = text_font.render(f"Fog of War {fog_status}", True, fog_color)
-    screen.blit(fog_text, (100, y_pos))
-    clickable_rects['fog_of_war'] = pygame.Rect(100, y_pos, 400, 40)
+    fog_rect = fog_text.get_rect(center=(center_x, y_pos))
+    screen.blit(fog_text, fog_rect)
+    clickable_rects['fog_of_war'] = pygame.Rect(center_x - 200, y_pos - 20, 400, 40)
 
     y_pos += 35
     fog_desc = tiny_font.render("Limited vision - only see nearby tiles", True, GRAY)
-    screen.blit(fog_desc, (120, y_pos))
+    fog_desc_rect = fog_desc.get_rect(center=(center_x, y_pos))
+    screen.blit(fog_desc, fog_desc_rect)
     y_pos += 50
 
     # Energy Constraint Toggle
@@ -307,31 +312,39 @@ def draw_settings_screen(screen, settings_state):
     energy_status = "[ON]" if energy_enabled else "[OFF]"
     energy_color = GREEN if energy_enabled else GRAY
     energy_text = text_font.render(f"Energy Constraint {energy_status}", True, energy_color)
-    screen.blit(energy_text, (100, y_pos))
-    clickable_rects['energy_constraint'] = pygame.Rect(100, y_pos, 450, 40)
+    energy_rect = energy_text.get_rect(center=(center_x, y_pos))
+    screen.blit(energy_text, energy_rect)
+    clickable_rects['energy_constraint'] = pygame.Rect(center_x - 225, y_pos - 20, 450, 40)
 
     y_pos += 35
     if energy_enabled:
         fuel_limit = settings_state.get('fuel_limit', 100)
         fuel_desc = tiny_font.render(f"Limited fuel: {fuel_limit} cost units (Click +/- to adjust)", True, GRAY)
-        screen.blit(fuel_desc, (120, y_pos))
+        fuel_desc_rect = fuel_desc.get_rect(center=(center_x, y_pos))
+        screen.blit(fuel_desc, fuel_desc_rect)
 
-        # Fuel adjustment buttons
+        y_pos += 30
+        # Fuel adjustment buttons - centered layout
+        button_spacing = 80
         minus_btn = small_font.render("[-]", True, WHITE)
-        screen.blit(minus_btn, (120, y_pos + 25))
-        clickable_rects['fuel_decrease'] = pygame.Rect(120, y_pos + 25, 35, 30)
+        minus_rect = minus_btn.get_rect(center=(center_x - button_spacing, y_pos))
+        screen.blit(minus_btn, minus_rect)
+        clickable_rects['fuel_decrease'] = pygame.Rect(center_x - button_spacing - 20, y_pos - 15, 40, 30)
 
         fuel_value = text_font.render(str(fuel_limit), True, YELLOW)
-        screen.blit(fuel_value, (170, y_pos + 20))
+        fuel_rect = fuel_value.get_rect(center=(center_x, y_pos))
+        screen.blit(fuel_value, fuel_rect)
 
         plus_btn = small_font.render("[+]", True, WHITE)
-        screen.blit(plus_btn, (240, y_pos + 25))
-        clickable_rects['fuel_increase'] = pygame.Rect(240, y_pos + 25, 35, 30)
+        plus_rect = plus_btn.get_rect(center=(center_x + button_spacing, y_pos))
+        screen.blit(plus_btn, plus_rect)
+        clickable_rects['fuel_increase'] = pygame.Rect(center_x + button_spacing - 20, y_pos - 15, 40, 30)
 
         y_pos += 60
     else:
         energy_desc = tiny_font.render("Limited fuel cost for pathfinding", True, GRAY)
-        screen.blit(energy_desc, (120, y_pos))
+        energy_desc_rect = energy_desc.get_rect(center=(center_x, y_pos))
+        screen.blit(energy_desc, energy_desc_rect)
         y_pos += 50
 
     # Instructions
