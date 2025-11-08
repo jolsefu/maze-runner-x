@@ -757,6 +757,7 @@ def reinitialize_pygame():
 if __name__ == "__main__":
     # Import main at the start
     import main
+    import multi_agent_mode
 
     while True:  # Loop to return to menu after game ends
         result = show_menu()
@@ -770,8 +771,18 @@ if __name__ == "__main__":
             energy_constraint = result[5] if len(result) > 5 else False
             fuel_limit = result[6] if len(result) > 6 else 100
 
-            # Start the game (don't quit pygame, just start the game)
-            main.start(goal_placement, maze_mode, 5, player_mode, fog_of_war, energy_constraint, fuel_limit)
+            # Start the appropriate game mode
+            if player_mode == 'multi-agent':
+                # Multi-agent mode: 4 AIs compete from corners to center
+                num_agents = 4  # Fixed: 4 agents starting from each corner
+                multi_agent_mode.start(goal_placement, maze_mode, num_agents, fog_of_war, energy_constraint, fuel_limit)
+            elif player_mode == 'algo-compare':
+                # Algorithm comparison mode (not yet implemented)
+                print("Algorithm comparison mode coming soon!")
+                main.start(goal_placement, maze_mode, 5, player_mode, fog_of_war, energy_constraint, fuel_limit)
+            else:
+                # Solo or competitive mode
+                main.start(goal_placement, maze_mode, 5, player_mode, fog_of_war, energy_constraint, fuel_limit)
 
             # Reinitialize pygame after game ends (pygame.quit() is called in main.py)
             reinitialize_pygame()
