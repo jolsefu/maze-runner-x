@@ -716,25 +716,32 @@ def show_menu():
     sys.exit()
 
 
+def reinitialize_pygame():
+    """Reinitialize pygame after a game session"""
+    global screen, clock
+    pygame.init()
+    screen = pygame.display.set_mode((MENU_WIDTH, MENU_HEIGHT))
+    pygame.display.set_caption("Maze Runner - Main Menu")
+    clock = pygame.time.Clock()
+
+
 if __name__ == "__main__":
+    # Import main at the start
+    import main
+
     while True:  # Loop to return to menu after game ends
         result = show_menu()
 
         if result[0] == "start":
-            # Close menu and start the game
+            # Get settings
             goal_placement = result[1]
             maze_mode = result[2]
             player_mode = result[3]
-            pygame.quit()
 
-            # Import and start the main game with settings
-            import main
-            # Pass both maze_mode and player_mode to the game
+            # Start the game (don't quit pygame, just start the game)
             main.start(goal_placement, maze_mode, 5, player_mode)
 
-            # Reinitialize pygame after game ends
-            pygame.init()
-            screen = pygame.display.set_mode((MENU_WIDTH, MENU_HEIGHT))
-            pygame.display.set_caption("Maze Runner - Main Menu")
+            # Reinitialize pygame after game ends (pygame.quit() is called in main.py)
+            reinitialize_pygame()
         else:
             break  # Exit if user quits from menu

@@ -678,8 +678,7 @@ def loop(maze, player, input_controller, moves, won, goal_placement, game_mode='
 
         pygame.display.flip()
 
-    pygame.quit()
-
 
 if __name__ == "__main__":
     start('corner')  # Default to corner placement when running directly
+    pygame.quit()  # Only quit pygame when running standalone
