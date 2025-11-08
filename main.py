@@ -528,6 +528,9 @@ def loop(maze, player, input_controller, moves, won, goal_placement, game_mode='
                 if ai_animation_queue:
                     current_ai = ai_animation_queue[0]
 
+                    # Recalculate path before each move (works with dynamic obstacles)
+                    current_ai.calculate_path(maze)
+
                     # Make one move
                     moved = current_ai.make_move(maze)
 
@@ -552,9 +555,8 @@ def loop(maze, player, input_controller, moves, won, goal_placement, game_mode='
                 if player_mode == 'competitive':
                     for ai in ai_agents:
                         if not ai.finished and ai not in ai_animation_queue:
-                            ai.calculate_path(maze)  # Recalculate path after player moves
-                            if ai.path:
-                                ai_animation_queue.append(ai)
+                            # Just add to queue, path will be calculated when AI moves
+                            ai_animation_queue.append(ai)
 
                 # Dynamic mode: Spawn obstacles as player moves
                 if game_mode == 'dynamic':
@@ -596,8 +598,9 @@ def loop(maze, player, input_controller, moves, won, goal_placement, game_mode='
         # Draw AI agents and their paths (in competitive mode)
         if player_mode == 'competitive':
             for ai in ai_agents:
-                if not ai.finished:
-                    ai.draw_path(screen, TILE_SIZE)
+                # Don't draw the AI's path (hide their strategy)
+                # if not ai.finished:
+                #     ai.draw_path(screen, TILE_SIZE)
                 ai.draw(screen)
 
         # Draw player
@@ -626,9 +629,8 @@ def loop(maze, player, input_controller, moves, won, goal_placement, game_mode='
                     if player_mode == 'competitive':
                         for ai in ai_agents:
                             if not ai.finished and ai not in ai_animation_queue:
-                                ai.calculate_path(maze)  # Recalculate path after player moves
-                                if ai.path:
-                                    ai_animation_queue.append(ai)
+                                # Just add to queue, path will be calculated when AI moves
+                                ai_animation_queue.append(ai)
 
                     # Dynamic mode: Spawn obstacles as player moves
                     if game_mode == 'dynamic':
