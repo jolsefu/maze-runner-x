@@ -7,7 +7,7 @@ class InputController:
 
     def __init__(self, tile_size):
         self.tile_size = tile_size
-        self.mouse_held = False
+        self.pathfinding_active = False  # Toggle state for pathfinding
         self.current_path = []
         self.path_index = 0
 
@@ -31,40 +31,29 @@ class InputController:
         return move_cost
 
     def handle_mouse_input(self, event, player, maze):
-        """Handle mouse click and drag for pathfinding movement"""
+        """Handle mouse click to toggle pathfinding on/off"""
         if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:  # Left click
-            self.mouse_held = True
-            # Calculate path to clicked position
-            mouse_x, mouse_y = pygame.mouse.get_pos()
-            target_tile_x = mouse_x // self.tile_size
-            target_tile_y = mouse_y // self.tile_size
+            # Toggle pathfinding
+            if self.pathfinding_active:
+                # Turn off pathfinding
+                self.pathfinding_active = False
+                self.current_path = []
+                self.path_index = 0
+            else:
+                # Turn on pathfinding - calculate path to clicked position
+                mouse_x, mouse_y = pygame.mouse.get_pos()
+                target_tile_x = mouse_x // self.tile_size
+                target_tile_y = mouse_y // self.tile_size
 
-            # Find path from player to target
-            self.current_path = self._find_path(
-                player.tile_x, player.tile_y,
-                target_tile_x, target_tile_y,
-                maze
-            )
-            self.path_index = 0
-
-        elif event.type == pygame.MOUSEBUTTONUP and event.button == 1:  # Release left click
-            self.mouse_held = False
-            self.current_path = []
-            self.path_index = 0
-
-        elif event.type == pygame.MOUSEMOTION and self.mouse_held:
-            # Update path if mouse moves while held
-            mouse_x, mouse_y = pygame.mouse.get_pos()
-            target_tile_x = mouse_x // self.tile_size
-            target_tile_y = mouse_y // self.tile_size
-
-            # Recalculate path from current position
-            self.current_path = self._find_path(
-                player.tile_x, player.tile_y,
-                target_tile_x, target_tile_y,
-                maze
-            )
-            self.path_index = 0
+                # Find path from player to target
+                self.current_path = self._find_path(
+                    player.tile_x, player.tile_y,
+                    target_tile_x, target_tile_y,
+                    maze
+                )
+                if self.current_path:  # Only activate if a valid path was found
+                    self.pathfinding_active = True
+                    self.path_index = 0
 
     def update_mouse_movement(self, player, maze, delay_frames=10):
         """Update player position along the path (called every frame)
@@ -72,7 +61,7 @@ class InputController:
         Args:
             delay_frames: Number of frames to wait between moves (lower = faster)
         """
-        if not self.mouse_held or not self.current_path:
+        if not self.pathfinding_active or not self.current_path:
             return 0
 
         # Move along the path at a controlled speed
@@ -89,9 +78,17 @@ class InputController:
 
                 if move_cost > 0:
                     self.path_index += 1
+
+                    # If we reached the end of the path, turn off pathfinding
+                    if self.path_index >= len(self.current_path):
+                        self.pathfinding_active = False
+                        self.current_path = []
+                        self.path_index = 0
+
                     return move_cost
                 else:
-                    # If move failed, clear path
+                    # If move failed, clear path and turn off pathfinding
+                    self.pathfinding_active = False
                     self.current_path = []
                     self.path_index = 0
 
