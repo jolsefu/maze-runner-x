@@ -318,27 +318,7 @@ def draw_ui(screen, width, height, moves, total_cost, won, game_mode='explore', 
         # Terrain legend
         y_pos += 90
 
-    # Terrain legend (for both modes)
-    if player_mode == 'solo' or y_pos < height - 250:
-        legend_title = font_text.render("Terrain Costs:", True, WHITE)
-        legend_rect = legend_title.get_rect(centerx=ui_x_start + UI_WIDTH // 2, y=y_pos)
-        screen.blit(legend_title, legend_rect)
-
-        y_pos += 40
-        terrain_info = [
-            ("Grass: 1", GREEN),
-            ("Water: 3", BLUE),
-            ("Mud: 5", (139, 69, 19)),
-            ("Lava: Impassable", RED)
-        ]
-        for terrain, color in terrain_info:
-            terrain_text = font_small.render(terrain, True, color)
-            terrain_rect = terrain_text.get_rect(centerx=ui_x_start + UI_WIDTH // 2, y=y_pos)
-            screen.blit(terrain_text, terrain_rect)
-            y_pos += 35
-
     # Win message or instructions
-    y_pos += 50
     if won and player_mode == 'solo':
         win_text = font_title.render("YOU WIN!", True, YELLOW)
         win_rect = win_text.get_rect(centerx=ui_x_start + UI_WIDTH // 2, y=y_pos)

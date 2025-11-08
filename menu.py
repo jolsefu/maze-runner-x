@@ -105,7 +105,9 @@ def draw_controls_screen(screen):
         ("", ""),
         ("R", "Generate New Maze"),
         ("", ""),
-        ("Hold Mouse Left Click", "Go to path using A* Algorithm"),
+        ("Left Click", "Toggle pathfinding (A* Algorithm)"),
+        ("", ""),
+        ("ESC", "Return to Menu"),
         ("", ""),
         ("Objective:", ""),
         ("  Navigate from the green start", ""),
@@ -126,6 +128,115 @@ def draw_controls_screen(screen):
             y_pos += 40
         else:
             y_pos += 20
+
+
+def draw_guide_screen(screen):
+    """Draw the guide screen with terrain legend and game info side-by-side"""
+    title_font = pygame.font.Font(None, 72)
+    text_font = pygame.font.Font(None, 36)
+    small_font = pygame.font.Font(None, 28)
+    tiny_font = pygame.font.Font(None, 24)
+
+    # Title
+    title = title_font.render("Guide", True, YELLOW)
+    title_rect = title.get_rect(center=(MENU_WIDTH // 2, 80))
+    screen.blit(title, title_rect)
+
+    # Calculate three column positions
+    left_col_x = MENU_WIDTH // 6
+    middle_col_x = MENU_WIDTH // 2
+    right_col_x = 5 * MENU_WIDTH // 6
+
+    # LEFT COLUMN: Terrain Legend
+    y_pos = 180
+    legend_title = text_font.render("Terrain Costs", True, YELLOW)
+    legend_rect = legend_title.get_rect(center=(left_col_x, y_pos))
+    screen.blit(legend_title, legend_rect)
+
+    y_pos += 60
+    terrain_info = [
+        ("Grass: 1", (50, 255, 100), "Easy to traverse"),
+        ("Water: 3", (50, 150, 255), "Slows you down"),
+        ("Mud: 5", (139, 69, 19), "Difficult to cross"),
+        ("Lava: Block", (255, 50, 50), "Cannot be crossed")
+    ]
+
+    for terrain, color, description in terrain_info:
+        terrain_text = small_font.render(terrain, True, color)
+        terrain_rect = terrain_text.get_rect(center=(left_col_x, y_pos))
+        screen.blit(terrain_text, terrain_rect)
+
+        y_pos += 35
+        desc_text = tiny_font.render(description, True, GRAY)
+        desc_rect = desc_text.get_rect(center=(left_col_x, y_pos))
+        screen.blit(desc_text, desc_rect)
+
+        y_pos += 55
+
+    # MIDDLE COLUMN: Maze Modes
+    middle_y = 180
+    modes_title = text_font.render("Maze Modes", True, YELLOW)
+    modes_rect = modes_title.get_rect(center=(middle_col_x, middle_y))
+    screen.blit(modes_title, modes_rect)
+
+    middle_y += 60
+    modes_info = [
+        ("Explore", "Static maze with", "fixed obstacles"),
+        ("Dynamic", "Obstacles appear", "as you play"),
+        ("Multi-Goal", "Collect checkpoints", "before goal")
+    ]
+
+    for mode_name, desc_line1, desc_line2 in modes_info:
+        mode_text = small_font.render(mode_name, True, GREEN)
+        mode_text_rect = mode_text.get_rect(center=(middle_col_x, middle_y))
+        screen.blit(mode_text, mode_text_rect)
+
+        middle_y += 35
+        desc_text1 = tiny_font.render(desc_line1, True, WHITE)
+        desc_rect1 = desc_text1.get_rect(center=(middle_col_x, middle_y))
+        screen.blit(desc_text1, desc_rect1)
+
+        middle_y += 25
+        desc_text2 = tiny_font.render(desc_line2, True, WHITE)
+        desc_rect2 = desc_text2.get_rect(center=(middle_col_x, middle_y))
+        screen.blit(desc_text2, desc_rect2)
+
+        middle_y += 60
+
+    # RIGHT COLUMN: Player Modes
+    right_y = 180
+    player_modes_title = text_font.render("Player Modes", True, YELLOW)
+    player_modes_rect = player_modes_title.get_rect(center=(right_col_x, right_y))
+    screen.blit(player_modes_title, player_modes_rect)
+
+    right_y += 60
+    player_modes_info = [
+        ("Solo", "Play alone and", "solve the maze"),
+        ("Competitive", "Race against", "AI opponent")
+    ]
+
+    for mode_name, desc_line1, desc_line2 in player_modes_info:
+        mode_text = small_font.render(mode_name, True, GREEN)
+        mode_text_rect = mode_text.get_rect(center=(right_col_x, right_y))
+        screen.blit(mode_text, mode_text_rect)
+
+        right_y += 35
+        desc_text1 = tiny_font.render(desc_line1, True, WHITE)
+        desc_rect1 = desc_text1.get_rect(center=(right_col_x, right_y))
+        screen.blit(desc_text1, desc_rect1)
+
+        right_y += 25
+        desc_text2 = tiny_font.render(desc_line2, True, WHITE)
+        desc_rect2 = desc_text2.get_rect(center=(right_col_x, right_y))
+        screen.blit(desc_text2, desc_rect2)
+
+        right_y += 60
+
+    # Vertical separator lines
+    separator1_x = (left_col_x + middle_col_x) // 2
+    separator2_x = (middle_col_x + right_col_x) // 2
+    pygame.draw.line(screen, GRAY, (separator1_x, 170), (separator1_x, 550), 2)
+    pygame.draw.line(screen, GRAY, (separator2_x, 170), (separator2_x, 550), 2)
 
 def draw_settings_screen(screen, settings_state):
     """Draw the settings screen
@@ -421,11 +532,12 @@ def show_menu():
     start_button = Button(button_x, start_y, button_width, button_height, "Start Game", BLUE, GREEN)
     settings_button = Button(button_x, start_y + 90, button_width, button_height, "Settings", BLUE, GREEN)
     controls_button = Button(button_x, start_y + 180, button_width, button_height, "Controls", BLUE, GREEN)
-    quit_button = Button(button_x, start_y + 270, button_width, button_height, "Quit", RED, YELLOW)
+    guide_button = Button(button_x, start_y + 270, button_width, button_height, "Guide", BLUE, GREEN)
+    quit_button = Button(button_x, start_y + 360, button_width, button_height, "Quit", RED, YELLOW)
     back_button = Button(button_x, MENU_HEIGHT - 120, button_width, button_height, "Back", GRAY, GREEN)
     continue_button = Button(button_x, MENU_HEIGHT - 120, button_width, button_height, "Continue", GREEN, YELLOW)
 
-    current_screen = "main"  # Can be "main", "controls", "settings", or "game_mode"
+    current_screen = "main"  # Can be "main", "controls", "settings", "guide", or "game_mode"
     running = True
 
     while running:
@@ -445,7 +557,7 @@ def show_menu():
 
             if event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_ESCAPE:
-                    if current_screen in ["controls", "settings", "game_mode"]:
+                    if current_screen in ["controls", "settings", "game_mode", "guide"]:
                         current_screen = "main"
                     else:
                         pygame.quit()
@@ -462,11 +574,13 @@ def show_menu():
             start_button.update(mouse_pos)
             settings_button.update(mouse_pos)
             controls_button.update(mouse_pos)
+            guide_button.update(mouse_pos)
             quit_button.update(mouse_pos)
 
             start_button.draw(screen)
             settings_button.draw(screen)
             controls_button.draw(screen)
+            guide_button.draw(screen)
             quit_button.draw(screen)
 
             # Check for button clicks
@@ -478,6 +592,9 @@ def show_menu():
 
             if controls_button.is_clicked(mouse_pos, mouse_click):
                 current_screen = "controls"
+
+            if guide_button.is_clicked(mouse_pos, mouse_click):
+                current_screen = "guide"
 
             if quit_button.is_clicked(mouse_pos, mouse_click):
                 pygame.quit()
@@ -572,6 +689,18 @@ def show_menu():
         elif current_screen == "controls":
             # Draw controls screen
             draw_controls_screen(screen)
+
+            # Update and draw back button
+            back_button.update(mouse_pos)
+            back_button.draw(screen)
+
+            # Check for back button click
+            if back_button.is_clicked(mouse_pos, mouse_click):
+                current_screen = "main"
+
+        elif current_screen == "guide":
+            # Draw guide screen
+            draw_guide_screen(screen)
 
             # Update and draw back button
             back_button.update(mouse_pos)
