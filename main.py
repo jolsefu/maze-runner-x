@@ -138,6 +138,78 @@ class Player:
         return maze[self.tile_y][self.tile_x] == TERRAIN_GOAL
 
 
+def draw_maze_with_fog(screen, maze, tile_size, player, explored_tiles, vision_range=5):
+    """Draw the maze with fog of war - only showing tiles within vision range or previously explored"""
+    for y, row in enumerate(maze):
+        for x, cell in enumerate(row):
+            rect = pygame.Rect(x * tile_size, y * tile_size, tile_size, tile_size)
+
+            # Calculate distance from player (Manhattan distance)
+            distance = abs(x - player.tile_x) + abs(y - player.tile_y)
+            is_visible = distance <= vision_range
+            is_explored = (x, y) in explored_tiles
+
+            if is_visible or is_explored:
+                # Draw the tile normally
+                if cell == TERRAIN_GRASS:  # Grass - cost 1
+                    screen.blit(grass_sprite, rect)
+                elif cell == TERRAIN_WALL:  # Wall - impassable
+                    screen.blit(wall_sprite, rect)
+                elif cell == TERRAIN_WATER:  # Water - cost 3
+                    screen.blit(water_sprite, rect)
+                elif cell == TERRAIN_MUD:  # Mud - cost 5
+                    screen.blit(mud_sprite, rect)
+                elif cell == TERRAIN_LAVA:  # Lava - impassable
+                    screen.blit(lava_sprite, rect)
+                elif cell == TERRAIN_CHECKPOINT:  # Checkpoint - resets cost
+                    screen.blit(grass_sprite, rect)
+                    # Draw checkpoint marker (yellow star)
+                    overlay = pygame.Surface((tile_size, tile_size))
+                    overlay.fill(YELLOW)
+                    overlay.set_alpha(100)
+                    screen.blit(overlay, rect)
+                    # Draw star shape
+                    pygame.draw.circle(screen, YELLOW, rect.center, tile_size // 4, 3)
+                elif cell == TERRAIN_START:  # Start - use grass with green overlay
+                    screen.blit(grass_sprite, rect)
+                    # Add green tint for start
+                    overlay = pygame.Surface((tile_size, tile_size))
+                    overlay.fill(GREEN)
+                    overlay.set_alpha(120)
+                    screen.blit(overlay, rect)
+                elif cell == TERRAIN_GOAL:  # Goal - use grass with red flag
+                    screen.blit(grass_sprite, rect)
+                    # Add red tint for goal
+                    overlay = pygame.Surface((tile_size, tile_size))
+                    overlay.fill(RED)
+                    overlay.set_alpha(120)
+                    screen.blit(overlay, rect)
+                    # Draw a small flag marker
+                    flag_points = [
+                        (rect.centerx, rect.top + 2),
+                        (rect.centerx, rect.bottom - 2),
+                    ]
+                    pygame.draw.line(screen, RED, flag_points[0], flag_points[1], 2)
+                    flag_tri = [
+                        (rect.centerx, rect.top + 2),
+                        (rect.centerx + 6, rect.top + 5),
+                        (rect.centerx, rect.top + 8),
+                    ]
+                    pygame.draw.polygon(screen, RED, flag_tri)
+                else:  # Fallback
+                    screen.blit(empty_sprite, rect)
+
+                # Dim previously explored but not currently visible tiles
+                if not is_visible and is_explored:
+                    fog_overlay = pygame.Surface((tile_size, tile_size))
+                    fog_overlay.fill(BLACK)
+                    fog_overlay.set_alpha(120)  # Semi-transparent black
+                    screen.blit(fog_overlay, rect)
+            else:
+                # Draw black fog for unexplored tiles
+                pygame.draw.rect(screen, BLACK, rect)
+
+
 def draw_maze(screen, maze, tile_size):
     """Draw the maze on screen using sprites with different terrain types"""
     for y, row in enumerate(maze):
@@ -193,7 +265,7 @@ def draw_maze(screen, maze, tile_size):
                 screen.blit(empty_sprite, rect)
 
 
-def draw_ui(screen, width, height, moves, total_cost, won, game_mode='explore', player=None, num_checkpoints=3, player_mode='solo', ai_agents=None, winner=None):
+def draw_ui(screen, width, height, moves, total_cost, won, game_mode='explore', player=None, num_checkpoints=3, player_mode='solo', ai_agents=None, winner=None, fog_of_war=False):
     """Draw the UI elements on the right side of the screen."""
     font_title = pygame.font.Font(None, 48)
     font_text = pygame.font.Font(None, 32)
@@ -219,6 +291,14 @@ def draw_ui(screen, width, height, moves, total_cost, won, game_mode='explore', 
     title_text = font_title.render("MAZE RUNNER", True, YELLOW)
     title_rect = title_text.get_rect(centerx=ui_x_start + UI_WIDTH // 2, y=y_pos)
     screen.blit(title_text, title_rect)
+
+    # Show fog of war indicator if active
+    if fog_of_war:
+        y_pos += 60
+        fog_text = font_small.render("FOG OF WAR", True, CYAN)
+        fog_rect = fog_text.get_rect(centerx=ui_x_start + UI_WIDTH // 2, y=y_pos)
+        screen.blit(fog_text, fog_rect)
+        y_pos -= 10  # Adjust spacing
 
     # Competitive mode UI
     if player_mode == 'competitive':
@@ -433,7 +513,7 @@ def spawn_dynamic_obstacles(maze, player, moves):
                 maze[y][x] = TERRAIN_WATER
 
 
-def start(goal_placement='corner', game_mode='explore', num_checkpoints=5, player_mode='solo'):
+def start(goal_placement='corner', game_mode='explore', num_checkpoints=5, player_mode='solo', fog_of_war=False):
     """Start the game
 
     Args:
@@ -441,6 +521,7 @@ def start(goal_placement='corner', game_mode='explore', num_checkpoints=5, playe
         game_mode: Game mode ('explore', 'dynamic', or 'multi-goal')
         num_checkpoints: Number of checkpoints for multi-goal mode
         player_mode: Player mode ('solo' or 'competitive')
+        fog_of_war: Enable fog of war (limited vision)
     """
     # Generate maze
     maze = generate_maze(MAZE_WIDTH, MAZE_HEIGHT, goal_placement, game_mode, num_checkpoints)
@@ -477,17 +558,31 @@ def start(goal_placement='corner', game_mode='explore', num_checkpoints=5, playe
     moves = 0
     won = False
 
-    loop(maze, player, input_controller, moves, won, goal_placement, game_mode, num_checkpoints, player_mode, ai_agents)
+    loop(maze, player, input_controller, moves, won, goal_placement, game_mode, num_checkpoints, player_mode, ai_agents, fog_of_war)
     print("=" * 50)
     print("PYGAME STOPPED".center(50))
     print("=" * 50)
 
 
-def loop(maze, player, input_controller, moves, won, goal_placement, game_mode='explore', num_checkpoints=3, player_mode='solo', ai_agents=None):
+def loop(maze, player, input_controller, moves, won, goal_placement, game_mode='explore', num_checkpoints=3, player_mode='solo', ai_agents=None, fog_of_war=False):
     """Main game loop"""
     run = True
     if ai_agents is None:
         ai_agents = []
+
+    # Track explored tiles for fog of war (stores all tiles the player has seen)
+    explored_tiles = set()
+    if fog_of_war:
+        # Start with player's initial vision
+        vision_range = 5  # Player can see 5 tiles in each direction
+        for dy in range(-vision_range, vision_range + 1):
+            for dx in range(-vision_range, vision_range + 1):
+                tile_x = player.tile_x + dx
+                tile_y = player.tile_y + dy
+                if 0 <= tile_x < len(maze[0]) and 0 <= tile_y < len(maze):
+                    # Use Manhattan distance for vision
+                    if abs(dx) + abs(dy) <= vision_range:
+                        explored_tiles.add((tile_x, tile_y))
 
     # For visualizing AI moves
     ai_animation_queue = []  # Queue of AI agents to animate
@@ -569,11 +664,29 @@ def loop(maze, player, input_controller, moves, won, goal_placement, game_mode='
         # Fill background
         screen.fill(BLACK)
 
-        # Draw maze
-        draw_maze(screen, maze, TILE_SIZE)
+        # Update explored tiles if fog of war is enabled
+        if fog_of_war:
+            vision_range = 5
+            for dy in range(-vision_range, vision_range + 1):
+                for dx in range(-vision_range, vision_range + 1):
+                    tile_x = player.tile_x + dx
+                    tile_y = player.tile_y + dy
+                    if 0 <= tile_x < len(maze[0]) and 0 <= tile_y < len(maze):
+                        # Use Manhattan distance for vision
+                        if abs(dx) + abs(dy) <= vision_range:
+                            explored_tiles.add((tile_x, tile_y))
+
+        # Draw maze (with or without fog of war)
+        if fog_of_war:
+            draw_maze_with_fog(screen, maze, TILE_SIZE, player, explored_tiles)
+        else:
+            draw_maze(screen, maze, TILE_SIZE)
 
         # Draw path visualization (if mouse is held)
-        input_controller.draw_path(screen, TILE_SIZE)
+        if fog_of_war:
+            input_controller.draw_path(screen, TILE_SIZE, player, explored_tiles)
+        else:
+            input_controller.draw_path(screen, TILE_SIZE)
 
         # Draw AI agents and their paths (in competitive mode)
         if player_mode == 'competitive':
@@ -587,7 +700,7 @@ def loop(maze, player, input_controller, moves, won, goal_placement, game_mode='
         player.draw(screen)
 
         # Draw UI
-        draw_ui(screen, TOTAL_WINDOW_WIDTH, TOTAL_WINDOW_HEIGHT, moves, player.total_cost, won, game_mode, player, num_checkpoints, player_mode, ai_agents, winner)
+        draw_ui(screen, TOTAL_WINDOW_WIDTH, TOTAL_WINDOW_HEIGHT, moves, player.total_cost, won, game_mode, player, num_checkpoints, player_mode, ai_agents, winner, fog_of_war)
 
         # Handle events
         for event in pygame.event.get():
@@ -657,6 +770,18 @@ def loop(maze, player, input_controller, moves, won, goal_placement, game_mode='
                 won = False
                 winner = None
                 ai_animation_queue = []
+
+                # Reset fog of war
+                if fog_of_war:
+                    explored_tiles.clear()
+                    vision_range = 5
+                    for dy in range(-vision_range, vision_range + 1):
+                        for dx in range(-vision_range, vision_range + 1):
+                            tile_x = start_x + dx
+                            tile_y = start_y + dy
+                            if 0 <= tile_x < len(maze[0]) and 0 <= tile_y < len(maze):
+                                if abs(dx) + abs(dy) <= vision_range:
+                                    explored_tiles.add((tile_x, tile_y))
 
                 # Recreate AI agents in competitive mode
                 if player_mode == 'competitive':

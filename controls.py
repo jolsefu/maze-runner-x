@@ -167,15 +167,35 @@ class InputController:
         # No path found
         return []
 
-    def draw_path(self, screen, tile_size):
-        """Draw the current path on screen (for debugging/visualization)"""
+    def draw_path(self, screen, tile_size, player=None, explored_tiles=None):
+        """Draw the current path on screen (for debugging/visualization)
+
+        Args:
+            screen: The pygame screen to draw on
+            tile_size: Size of each tile
+            player: Player object (optional, for fog of war)
+            explored_tiles: Set of explored tiles (optional, for fog of war)
+        """
         if not self.current_path:
             return
+
+        # Determine if fog of war is active
+        fog_of_war = player is not None and explored_tiles is not None
 
         # Draw path as semi-transparent lines
         if len(self.current_path) > 0:
             points = []
             for x, y in self.current_path:
+                # Only draw path segments that are visible or explored
+                if fog_of_war:
+                    vision_range = 5
+                    distance = abs(x - player.tile_x) + abs(y - player.tile_y)
+                    is_visible = distance <= vision_range
+                    is_explored = (x, y) in explored_tiles
+
+                    if not (is_visible or is_explored):
+                        continue  # Skip this point if it's in fog
+
                 center_x = x * tile_size + tile_size // 2
                 center_y = y * tile_size + tile_size // 2
                 points.append((center_x, center_y))

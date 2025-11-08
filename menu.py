@@ -634,9 +634,10 @@ def show_menu():
                 current_screen = "main"
 
             if continue_button_right.is_clicked(mouse_pos, mouse_click):
-                # Sync goal_placement from settings_state
+                # Sync goal_placement and fog_of_war from settings_state
                 goal_placement = settings_state['goal_placement']
-                return ("start", goal_placement, maze_mode, player_mode)  # Start the game with both modes
+                fog_of_war = settings_state['fog_of_war']
+                return ("start", goal_placement, maze_mode, player_mode, fog_of_war)  # Start the game with settings
 
         elif current_screen == "settings":
             # Draw settings screen
@@ -737,9 +738,10 @@ if __name__ == "__main__":
             goal_placement = result[1]
             maze_mode = result[2]
             player_mode = result[3]
+            fog_of_war = result[4] if len(result) > 4 else False
 
             # Start the game (don't quit pygame, just start the game)
-            main.start(goal_placement, maze_mode, 5, player_mode)
+            main.start(goal_placement, maze_mode, 5, player_mode, fog_of_war)
 
             # Reinitialize pygame after game ends (pygame.quit() is called in main.py)
             reinitialize_pygame()
