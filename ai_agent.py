@@ -18,20 +18,73 @@ class AIAgent:
         self.path = []  # Current path to goal
         self.finished = False
         self.moves = 0
+        self.explored_tiles = set()  # Tiles the AI has seen (for fog of war)
+        self.known_maze = {}  # Stores terrain info for explored tiles (x, y) -> terrain_type
 
-    def calculate_path(self, maze):
-        """Calculate path to goal using A* algorithm"""
-        # Find goal position
+    def update_vision(self, maze, vision_range=5, fog_of_war=False):
+        """Update AI's knowledge of the maze based on current position
+
+        Args:
+            maze: The full maze
+            vision_range: How far the AI can see
+            fog_of_war: Whether fog of war is enabled
+        """
+        if not fog_of_war:
+            # If no fog of war, AI knows everything
+            return
+
+        # Update explored tiles and known maze within vision range
+        for dy in range(-vision_range, vision_range + 1):
+            for dx in range(-vision_range, vision_range + 1):
+                tile_x = self.tile_x + dx
+                tile_y = self.tile_y + dy
+
+                # Check bounds
+                if 0 <= tile_x < len(maze[0]) and 0 <= tile_y < len(maze):
+                    # Use Manhattan distance for vision
+                    if abs(dx) + abs(dy) <= vision_range:
+                        self.explored_tiles.add((tile_x, tile_y))
+                        self.known_maze[(tile_x, tile_y)] = maze[tile_y][tile_x]
+
+    def calculate_path(self, maze, fog_of_war=False):
+        """Calculate path to goal using A* algorithm
+
+        Args:
+            maze: The full maze
+            fog_of_war: If True, AI can only pathfind through explored tiles
+        """
+    def calculate_path(self, maze, fog_of_war=False):
+        """Calculate path to goal using A* algorithm
+
+        Args:
+            maze: The full maze
+            fog_of_war: If True, AI can only pathfind through explored tiles
+        """
+        # Update AI's vision first
+        self.update_vision(maze, fog_of_war=fog_of_war)
+
+        # Find goal position (only if AI has seen it)
         goal_x, goal_y = None, None
-        for y in range(len(maze)):
-            for x in range(len(maze[0])):
-                if maze[y][x] == TERRAIN_GOAL:
+
+        if fog_of_war:
+            # AI can only know about goal if it has explored that tile
+            for (x, y), terrain in self.known_maze.items():
+                if terrain == TERRAIN_GOAL:
                     goal_x, goal_y = x, y
                     break
-            if goal_x is not None:
-                break
+        else:
+            # No fog of war - AI can see the entire maze
+            for y in range(len(maze)):
+                for x in range(len(maze[0])):
+                    if maze[y][x] == TERRAIN_GOAL:
+                        goal_x, goal_y = x, y
+                        break
+                if goal_x is not None:
+                    break
 
+        # If goal not found (not explored yet in fog of war), explore randomly
         if goal_x is None:
+            self._explore_blindly(maze, fog_of_war)
             return
 
         # Use A* pathfinding
@@ -65,12 +118,17 @@ class AIAgent:
                 if not (0 <= next_y < len(maze) and 0 <= next_x < len(maze[0])):
                     continue
 
+                # In fog of war mode, only consider explored tiles
+                if fog_of_war and next_pos not in self.known_maze:
+                    continue
+
                 # Check if passable
-                if not is_passable(maze[next_y][next_x]):
+                terrain = self.known_maze.get(next_pos, maze[next_y][next_x]) if fog_of_war else maze[next_y][next_x]
+                if not is_passable(terrain):
                     continue
 
                 # Calculate cost (g_score)
-                move_cost = get_terrain_cost(maze[next_y][next_x])
+                move_cost = get_terrain_cost(terrain)
                 new_cost = current_cost + move_cost
 
                 # If we found a better path to this node
@@ -87,6 +145,82 @@ class AIAgent:
                     heappush(open_set, (f_score, counter, next_pos, new_path, new_cost))
 
         # No path found
+        self.path = []
+
+    def _explore_blindly(self, maze, fog_of_war):
+        """When goal is not visible, move towards unexplored areas
+
+        This makes the AI explore the maze when it doesn't know where the goal is
+        """
+        if not fog_of_war:
+            return
+
+        # Find the nearest unexplored passable tile within or adjacent to explored area
+        import random
+
+        candidates = []
+        explored_neighbors = set()
+
+        # Check tiles adjacent to explored area
+        for (ex, ey) in self.explored_tiles:
+            for dx, dy in [(0, 1), (1, 0), (0, -1), (-1, 0)]:
+                nx, ny = ex + dx, ey + dy
+                if (nx, ny) not in self.explored_tiles:
+                    if 0 <= nx < len(maze[0]) and 0 <= ny < len(maze):
+                        explored_neighbors.add((nx, ny))
+
+        # From current position, try to reach the nearest unexplored border
+        if explored_neighbors:
+            target = min(explored_neighbors,
+                        key=lambda pos: abs(pos[0] - self.tile_x) + abs(pos[1] - self.tile_y))
+
+            # Try to pathfind to just before the unexplored area
+            for (ex, ey) in self.explored_tiles:
+                if abs(ex - target[0]) + abs(ey - target[1]) == 1:  # Adjacent to target
+                    # Try to path to this explored tile
+                    self._pathfind_in_known_area((ex, ey))
+                    if self.path:
+                        return
+
+        # Fallback: move to any adjacent explored passable tile
+        for dx, dy in [(0, 1), (1, 0), (0, -1), (-1, 0)]:
+            nx, ny = self.tile_x + dx, self.tile_y + dy
+            if (nx, ny) in self.known_maze and is_passable(self.known_maze[(nx, ny)]):
+                self.path = [(nx, ny)]
+                return
+
+        self.path = []
+
+    def _pathfind_in_known_area(self, target):
+        """Pathfind to a target within the known area"""
+        start = (self.tile_x, self.tile_y)
+
+        # Simple BFS for short paths
+        from collections import deque
+        queue = deque([(start, [])])
+        visited = {start}
+
+        while queue:
+            current, path = queue.popleft()
+
+            if current == target:
+                self.path = path
+                return
+
+            for dx, dy in [(0, 1), (1, 0), (0, -1), (-1, 0)]:
+                nx, ny = current[0] + dx, current[1] + dy
+                next_pos = (nx, ny)
+
+                if next_pos in visited:
+                    continue
+                if next_pos not in self.known_maze:
+                    continue
+                if not is_passable(self.known_maze[next_pos]):
+                    continue
+
+                visited.add(next_pos)
+                queue.append((next_pos, path + [next_pos]))
+
         self.path = []
 
     def make_move(self, maze):

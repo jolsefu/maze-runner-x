@@ -549,7 +549,7 @@ def start(goal_placement='corner', game_mode='explore', num_checkpoints=5, playe
         ai_y = start_y
 
         ai_agent = AIAgent(ai_x, ai_y, TILE_SIZE, ai_name, ai_color)
-        ai_agent.calculate_path(maze)  # Calculate initial path
+        ai_agent.calculate_path(maze, fog_of_war)  # Calculate initial path with fog of war awareness
         ai_agents.append(ai_agent)
 
     # Create input controller
@@ -603,8 +603,8 @@ def loop(maze, player, input_controller, moves, won, goal_placement, game_mode='
                 if ai_animation_queue:
                     current_ai = ai_animation_queue[0]
 
-                    # Recalculate path before each move (works with dynamic obstacles)
-                    current_ai.calculate_path(maze)
+                    # Recalculate path before each move (works with dynamic obstacles and fog of war)
+                    current_ai.calculate_path(maze, fog_of_war)
 
                     # Make one move
                     moved = current_ai.make_move(maze)
@@ -794,7 +794,7 @@ def loop(maze, player, input_controller, moves, won, goal_placement, game_mode='
                     ai_y = start_y
 
                     ai_agent = AIAgent(ai_x, ai_y, TILE_SIZE, ai_name, ai_color)
-                    ai_agent.calculate_path(maze)
+                    ai_agent.calculate_path(maze, fog_of_war)
                     ai_agents.append(ai_agent)
 
             # Return to menu
