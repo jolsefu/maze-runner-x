@@ -758,6 +758,7 @@ if __name__ == "__main__":
     # Import main at the start
     import main
     import multi_agent_mode
+    import algo_comparison
 
     while True:  # Loop to return to menu after game ends
         result = show_menu()
@@ -777,9 +778,8 @@ if __name__ == "__main__":
                 num_agents = 4  # Fixed: 4 agents starting from each corner
                 multi_agent_mode.start(goal_placement, maze_mode, num_agents, fog_of_war, energy_constraint, fuel_limit)
             elif player_mode == 'algo-compare':
-                # Algorithm comparison mode (not yet implemented)
-                print("Algorithm comparison mode coming soon!")
-                main.start(goal_placement, maze_mode, 5, player_mode, fog_of_war, energy_constraint, fuel_limit)
+                # Algorithm comparison dashboard: visualize BFS, Dijkstra, A*
+                algo_comparison.start(goal_placement, maze_mode, fog_of_war, energy_constraint, fuel_limit)
             else:
                 # Solo or competitive mode
                 main.start(goal_placement, maze_mode, 5, player_mode, fog_of_war, energy_constraint, fuel_limit)
