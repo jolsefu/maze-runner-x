@@ -70,15 +70,17 @@ class AIAgent:
 
         # Determine target based on remaining checkpoints
         target_x, target_y = None, None
-        
+
         # If there are checkpoints remaining, target the nearest one
         if self.remaining_checkpoints:
             # Find nearest checkpoint
             nearest_checkpoint = min(self.remaining_checkpoints,
                                     key=lambda pos: abs(pos[0] - self.tile_x) + abs(pos[1] - self.tile_y))
             target_x, target_y = nearest_checkpoint
+            print(f"DEBUG {self.name}: Targeting checkpoint at ({target_x}, {target_y}), {len(self.remaining_checkpoints)} checkpoints remaining")
         else:
             # All checkpoints collected, now go to goal
+            print(f"DEBUG {self.name}: All checkpoints collected, targeting goal")
             if fog_of_war:
                 # AI can only know about goal if it has explored that tile
                 for (x, y), terrain in self.known_maze.items():
@@ -119,6 +121,7 @@ class AIAgent:
             # Check if we reached the target
             if current == goal:
                 self.path = path
+                print(f"DEBUG {self.name}: Path found to target, path length: {len(path)}")
                 return
 
             # Explore neighbors (4 directions)
@@ -158,6 +161,7 @@ class AIAgent:
                     heappush(open_set, (f_score, counter, next_pos, new_path, new_cost))
 
         # No path found
+        print(f"DEBUG {self.name}: No path found to target at ({target_x}, {target_y})")
         self.path = []
 
     def _explore_blindly(self, maze, fog_of_war):
@@ -239,6 +243,7 @@ class AIAgent:
     def make_move(self, maze):
         """Make one move along the calculated path"""
         if not self.path or self.finished or self.out_of_energy:
+            print(f"DEBUG {self.name}: Cannot move - path empty: {not self.path}, finished: {self.finished}, out of energy: {self.out_of_energy}")
             return False
 
         # Get next position
@@ -262,16 +267,22 @@ class AIAgent:
         self.tile_y = next_y
         self.moves += 1
 
-        # Check if reached a checkpoint
-        if terrain == TERRAIN_CHECKPOINT and (next_x, next_y) in self.remaining_checkpoints:
-            self.checkpoints_collected += 1
-            self.exploration_cost += self.total_cost
-            self.total_cost = 0
-            self.remaining_checkpoints.remove((next_x, next_y))
-            maze[next_y][next_x] = TERRAIN_GRASS  # Convert checkpoint to grass
-            print(f"✓ {self.name} collected checkpoint! ({self.checkpoints_collected})")
-            # Recalculate path to next checkpoint or goal
-            self.calculate_path(maze)
+        # Check if reached a checkpoint (check position, not terrain, since player might have collected it first)
+        if (next_x, next_y) in self.remaining_checkpoints:
+            # Only collect if it's still a checkpoint terrain (hasn't been collected by player yet)
+            if terrain == TERRAIN_CHECKPOINT:
+                self.checkpoints_collected += 1
+                self.exploration_cost += self.total_cost
+                self.total_cost = 0
+                self.remaining_checkpoints.remove((next_x, next_y))
+                maze[next_y][next_x] = TERRAIN_GRASS  # Convert checkpoint to grass
+                print(f"✓ {self.name} collected checkpoint! ({self.checkpoints_collected})")
+                print(f"DEBUG {self.name}: Remaining checkpoints: {len(self.remaining_checkpoints)} at positions {self.remaining_checkpoints}")
+            else:
+                # Player collected it first, just remove from our list
+                self.remaining_checkpoints.remove((next_x, next_y))
+                print(f"DEBUG {self.name}: Checkpoint at ({next_x}, {next_y}) was already collected by player")
+            # Path will be recalculated by the main game loop before next move
             return True
 
         # Check if reached goal
@@ -280,9 +291,7 @@ class AIAgent:
             if not self.remaining_checkpoints:
                 self.finished = True
                 return True
-            else:
-                # At goal but haven't collected all checkpoints - recalculate to next checkpoint
-                self.calculate_path(maze)
+            # If at goal but haven't collected all checkpoints, path will be recalculated by main loop
 
         return True
 

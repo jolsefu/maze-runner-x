@@ -632,7 +632,7 @@ def start(goal_placement='corner', game_mode='explore', num_checkpoints=5, playe
         ai_y = start_y
 
         ai_agent = AIAgent(ai_x, ai_y, TILE_SIZE, ai_name, ai_color, energy_limit)
-        
+
         # In multi-goal mode, find all checkpoints and initialize AI's checkpoint list
         if game_mode == 'multi-goal':
             checkpoints = []
@@ -641,7 +641,7 @@ def start(goal_placement='corner', game_mode='explore', num_checkpoints=5, playe
                     if maze[y][x] == TERRAIN_CHECKPOINT:
                         checkpoints.append((x, y))
             ai_agent.remaining_checkpoints = checkpoints.copy()
-        
+
         ai_agent.calculate_path(maze, fog_of_war)  # Calculate initial path with fog of war awareness
         ai_agents.append(ai_agent)
 
@@ -1004,7 +1004,7 @@ def loop(maze, player, input_controller, moves, won, goal_placement, game_mode='
                     ai_y = start_y
 
                     ai_agent = AIAgent(ai_x, ai_y, TILE_SIZE, ai_name, ai_color, energy_limit)
-                    
+
                     # In multi-goal mode, find all checkpoints and initialize AI's checkpoint list
                     if game_mode == 'multi-goal':
                         checkpoints = []
@@ -1013,7 +1013,7 @@ def loop(maze, player, input_controller, moves, won, goal_placement, game_mode='
                                 if maze[y][x] == TERRAIN_CHECKPOINT:
                                     checkpoints.append((x, y))
                         ai_agent.remaining_checkpoints = checkpoints.copy()
-                    
+
                     ai_agent.calculate_path(maze, fog_of_war)
                     ai_agents.append(ai_agent)
 

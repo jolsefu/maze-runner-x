@@ -125,21 +125,21 @@ class MazeGenerator:
         placed_checkpoints = 0
         max_attempts = len(valid_positions) * 2  # Prevent infinite loop
         attempts = 0
-        
+
         while placed_checkpoints < self.num_checkpoints and attempts < max_attempts and valid_positions:
             attempts += 1
-            
+
             # Pick a random position
             if not valid_positions:
                 break
-            
+
             pos_index = random.randint(0, len(valid_positions) - 1)
             x, y = valid_positions[pos_index]
-            
+
             # Temporarily place checkpoint
             old_terrain = self.maze[y][x]
             self.maze[y][x] = TERRAIN_CHECKPOINT
-            
+
             # Verify this checkpoint is reachable from start
             if self._is_checkpoint_reachable(x, y):
                 # Keep the checkpoint
@@ -149,52 +149,52 @@ class MazeGenerator:
                 # Revert - this checkpoint is trapped
                 self.maze[y][x] = old_terrain
                 valid_positions.pop(pos_index)  # Don't try this position again
-        
+
         # If we couldn't place enough checkpoints, warn but continue
         if placed_checkpoints < self.num_checkpoints:
             print(f"Warning: Only placed {placed_checkpoints}/{self.num_checkpoints} checkpoints due to maze layout")
 
     def _is_checkpoint_reachable(self, checkpoint_x, checkpoint_y):
         """Check if a specific checkpoint is reachable from start using BFS
-        
+
         Args:
             checkpoint_x: X coordinate of checkpoint to check
             checkpoint_y: Y coordinate of checkpoint to check
-            
+
         Returns:
             True if checkpoint is reachable from start, False otherwise
         """
         from collections import deque
-        
+
         # Find start position
         start_pos = (1, 1)  # Start is always at (1, 1)
         checkpoint_pos = (checkpoint_x, checkpoint_y)
-        
+
         # BFS to check reachability
         queue = deque([start_pos])
         visited = set([start_pos])
-        
+
         while queue:
             x, y = queue.popleft()
-            
+
             # Check if we reached the checkpoint
             if (x, y) == checkpoint_pos:
                 return True
-            
+
             # Check all 4 directions
             for dx, dy in [(0, 1), (1, 0), (0, -1), (-1, 0)]:
                 nx, ny = x + dx, y + dy
-                
+
                 if (0 <= nx < self.width and
                     0 <= ny < self.height and
                     (nx, ny) not in visited):
-                    
+
                     terrain = self.maze[ny][nx]
                     # Can move through any terrain except walls and lava
                     if terrain != TERRAIN_WALL and terrain != TERRAIN_LAVA:
                         visited.add((nx, ny))
                         queue.append((nx, ny))
-        
+
         return False
 
     def _add_terrain_variety(self):
