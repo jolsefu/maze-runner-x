@@ -881,8 +881,9 @@ if __name__ == "__main__":
                 # Algorithm comparison dashboard: visualize BFS, Dijkstra, A*
                 algo_comparison.start(goal_placement, maze_mode, fog_of_war, energy_constraint, fuel_limit)
             else:
-                use_timer = timer_enabled if player_mode == 'competitive' or player_mode == 'solo' else False
-                main.start(goal_placement, maze_mode, 5, player_mode, fog_of_war, energy_constraint, fuel_limit, ai_turn_frequency, use_timer, time_limit)
+                # Solo or competitive mode (progressive levels in dynamic mode)
+                # Timer works in both solo and competitive modes
+                main.start(goal_placement, maze_mode, 5, player_mode, fog_of_war, energy_constraint, fuel_limit, ai_turn_frequency, timer_enabled, time_limit)
 
             # Reinitialize pygame after game ends (pygame.quit() is called in main.py)
             reinitialize_pygame()

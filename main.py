@@ -306,7 +306,7 @@ def draw_maze(screen, maze, tile_size, all_checkpoints=None, collected_checkpoin
                 screen.blit(empty_sprite, rect)
 
 
-def draw_ui(screen, width, height, moves, total_cost, won, game_mode='explore', player=None, num_checkpoints=3, player_mode='solo', ai_agents=None, winner=None, fog_of_war=False, energy_constraint=False, fuel_limit=100, current_level=1, level_moves=0, player_collected_checkpoints=None, ai_collected_checkpoints=None, timer_enabled=False, time_remaining=0, time_limit=60):
+def draw_ui(screen, width, height, moves, total_cost, won, game_mode='explore', player=None, num_checkpoints=3, player_mode='solo', ai_agents=None, winner=None, fog_of_war=False, energy_constraint=False, fuel_limit=100, current_level=1, level_moves=0, player_collected_checkpoints=None, ai_collected_checkpoints=None, timer_enabled=False, time_remaining=0, time_limit=60, loser=None):
     """Draw the UI elements on the right side of the screen."""
     font_title = pygame.font.Font(None, 48)
     font_text = pygame.font.Font(None, 32)
@@ -406,11 +406,39 @@ def draw_ui(screen, width, height, moves, total_cost, won, game_mode='explore', 
         # Winner announcement
         if won and winner:
             y_pos += 20
-            winner_color = BLUE if winner == "Player" else RED
-            win_text = font_title.render(f"{winner} WINS!", True, winner_color)
+            if winner == "No one":
+                # Draw or no winner
+                winner_color = GRAY
+                win_text = font_title.render("NO ONE WINS!", True, winner_color)
+            else:
+                winner_color = BLUE if winner == "Player" else RED
+                win_text = font_title.render(f"{winner} WINS!", True, winner_color)
             win_rect = win_text.get_rect(centerx=ui_x_start + UI_WIDTH // 2, y=y_pos)
             screen.blit(win_text, win_rect)
             y_pos += 70
+
+        # Timer display for competitive mode (if timer is enabled)
+        if timer_enabled and not won:
+            y_pos += 20
+            timer_label = font_text.render("Time Remaining:", True, WHITE)
+            timer_label_rect = timer_label.get_rect(centerx=ui_x_start + UI_WIDTH // 2, y=y_pos)
+            screen.blit(timer_label, timer_label_rect)
+
+            y_pos += 45
+            # Color based on time remaining
+            time_percent = (time_remaining / time_limit) * 100 if time_limit > 0 else 0
+            if time_percent > 50:
+                timer_color = GREEN
+            elif time_percent > 25:
+                timer_color = YELLOW
+            else:
+                timer_color = RED
+
+            minutes = int(time_remaining // 60)
+            seconds = int(time_remaining % 60)
+            timer_text = font_title.render(f"{minutes}:{seconds:02d}", True, timer_color)
+            timer_rect = timer_text.get_rect(centerx=ui_x_start + UI_WIDTH // 2, y=y_pos)
+            screen.blit(timer_text, timer_rect)
 
     else:
         # Solo mode UI (original)
@@ -537,31 +565,40 @@ def draw_ui(screen, width, height, moves, total_cost, won, game_mode='explore', 
 
     # Win message or instructions
     if won and player_mode == 'solo':
-        win_text = font_title.render("YOU WIN!", True, YELLOW)
-        win_rect = win_text.get_rect(centerx=ui_x_start + UI_WIDTH // 2, y=y_pos)
-        screen.blit(win_text, win_rect)
+        # Check if player actually won or lost (e.g., time expired)
+        if loser == "Player":
+            # Player lost (time ran out, out of energy, etc.)
+            lose_text = font_title.render("GAME OVER!", True, RED)
+            lose_rect = lose_text.get_rect(centerx=ui_x_start + UI_WIDTH // 2, y=y_pos)
+            screen.blit(lose_text, lose_rect)
+        else:
+            # Player actually won
+            win_text = font_title.render("YOU WIN!", True, YELLOW)
+            win_rect = win_text.get_rect(centerx=ui_x_start + UI_WIDTH // 2, y=y_pos)
+            screen.blit(win_text, win_rect)
 
         y_pos += 60
         restart_text = font_text.render("Press R to restart", True, WHITE)
         restart_rect = restart_text.get_rect(centerx=ui_x_start + UI_WIDTH // 2, y=y_pos)
         screen.blit(restart_text, restart_rect)
     elif not won:
-        # Controls
-        controls_title = font_text.render("Controls:", True, WHITE)
-        controls_rect = controls_title.get_rect(centerx=ui_x_start + UI_WIDTH // 2, y=y_pos)
-        screen.blit(controls_title, controls_rect)
+        pass
+        # # Controls
+        # controls_title = font_text.render("Controls:", True, WHITE)
+        # controls_rect = controls_title.get_rect(centerx=ui_x_start + UI_WIDTH // 2, y=y_pos)
+        # screen.blit(controls_title, controls_rect)
 
-        y_pos += 40
-        controls = [
-            "WASD/Arrows - Move",
-            "R - New Maze",
-            "ESC - Return to Menu"
-        ]
-        for control in controls:
-            control_text = font_text.render(control, True, WHITE)
-            control_rect = control_text.get_rect(centerx=ui_x_start + UI_WIDTH // 2, y=y_pos)
-            screen.blit(control_text, control_rect)
-            y_pos += 40
+        # y_pos += 40
+        # controls = [
+        #     "WASD/Arrows - Move",
+        #     "R - New Maze",
+        #     "ESC - Return to Menu"
+        # ]
+        # for control in controls:
+        #     control_text = font_text.render(control, True, WHITE)
+        #     control_rect = control_text.get_rect(centerx=ui_x_start + UI_WIDTH // 2, y=y_pos)
+        #     screen.blit(control_text, control_rect)
+        #     y_pos += 40
 
 
 def find_start_position(maze):
@@ -783,11 +820,35 @@ def loop(maze, player, input_controller, moves, won, goal_placement, game_mode='
                 time_expired = True
                 won = True
                 if player_mode == 'competitive':
-                    winner = "AI Opponent"  # AI wins if time runs out
-                    print(f"\n⏰ Time's up! ⏰")
-                    print(f"AI Opponent wins!")
+                    # Check if anyone is at the goal when time expires
+                    player_at_goal = player.is_at_goal(maze)
+                    ai_at_goal = any(ai.finished for ai in ai_agents)
+
+                    if player_at_goal and not ai_at_goal:
+                        # Player reached goal, AI didn't
+                        winner = "Player"
+                        print(f"\n⏰ Time's up! ⏰")
+                        print(f"Player wins!")
+                    elif ai_at_goal and not player_at_goal:
+                        # AI reached goal, player didn't
+                        winner = "AI Opponent"
+                        loser = "Player"
+                        print(f"\n⏰ Time's up! ⏰")
+                        print(f"AI Opponent wins!")
+                    elif player_at_goal and ai_at_goal:
+                        # Both at goal - it's a tie (could determine by moves/cost)
+                        winner = "No one"
+                        print(f"\n⏰ Time's up! ⏰")
+                        print(f"It's a tie!")
+                    else:
+                        # Neither at goal
+                        winner = "No one"
+                        print(f"\n⏰ Time's up! ⏰")
+                        print(f"No one wins!")
                 else:
-                    winner = None  # Solo mode - player just loses
+                    # Solo mode - player just loses
+                    loser = "Player"
+                    winner = None
                     print(f"\n⏰ Time's up! ⏰")
                     print(f"Game Over!")
 
@@ -989,7 +1050,7 @@ def loop(maze, player, input_controller, moves, won, goal_placement, game_mode='
 
         # Draw UI (pass appropriate moves count based on game mode)
         display_moves = total_moves if game_mode == 'dynamic' else moves
-        draw_ui(screen, TOTAL_WINDOW_WIDTH, TOTAL_WINDOW_HEIGHT, display_moves, player.total_cost, won, game_mode, player, num_checkpoints, player_mode, ai_agents, winner, fog_of_war, energy_constraint, fuel_limit, current_level, level_moves, player_collected_checkpoints, ai_collected_checkpoints, timer_enabled, time_remaining, time_limit)
+        draw_ui(screen, TOTAL_WINDOW_WIDTH, TOTAL_WINDOW_HEIGHT, display_moves, player.total_cost, won, game_mode, player, num_checkpoints, player_mode, ai_agents, winner, fog_of_war, energy_constraint, fuel_limit, current_level, level_moves, player_collected_checkpoints, ai_collected_checkpoints, timer_enabled, time_remaining, time_limit, loser)
 
         # Handle events
         for event in pygame.event.get():
