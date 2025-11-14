@@ -2,7 +2,7 @@
 
 import pygame
 from heapq import heappush, heappop
-from maze_generation import get_terrain_cost, is_passable, TERRAIN_GOAL
+from maze_generation import get_terrain_cost, is_passable, TERRAIN_GOAL, TERRAIN_CHECKPOINT, TERRAIN_GRASS
 
 
 class AIAgent:
@@ -22,6 +22,9 @@ class AIAgent:
         self.known_maze = {}  # Stores terrain info for explored tiles (x, y) -> terrain_type
         self.energy_limit = energy_limit  # Maximum energy allowed (None = unlimited)
         self.out_of_energy = False  # Flag for energy depletion
+        self.checkpoints_collected = 0  # Number of checkpoints collected (for multi-goal mode)
+        self.remaining_checkpoints = []  # List of checkpoint positions to visit
+        self.exploration_cost = 0  # Total exploration cost (for multi-goal mode)
 
     def update_vision(self, maze, vision_range=5, fog_of_war=False):
         """Update AI's knowledge of the maze based on current position
@@ -65,33 +68,41 @@ class AIAgent:
         # Update AI's vision first
         self.update_vision(maze, fog_of_war=fog_of_war)
 
-        # Find goal position (only if AI has seen it)
-        goal_x, goal_y = None, None
-
-        if fog_of_war:
-            # AI can only know about goal if it has explored that tile
-            for (x, y), terrain in self.known_maze.items():
-                if terrain == TERRAIN_GOAL:
-                    goal_x, goal_y = x, y
-                    break
+        # Determine target based on remaining checkpoints
+        target_x, target_y = None, None
+        
+        # If there are checkpoints remaining, target the nearest one
+        if self.remaining_checkpoints:
+            # Find nearest checkpoint
+            nearest_checkpoint = min(self.remaining_checkpoints,
+                                    key=lambda pos: abs(pos[0] - self.tile_x) + abs(pos[1] - self.tile_y))
+            target_x, target_y = nearest_checkpoint
         else:
-            # No fog of war - AI can see the entire maze
-            for y in range(len(maze)):
-                for x in range(len(maze[0])):
-                    if maze[y][x] == TERRAIN_GOAL:
-                        goal_x, goal_y = x, y
+            # All checkpoints collected, now go to goal
+            if fog_of_war:
+                # AI can only know about goal if it has explored that tile
+                for (x, y), terrain in self.known_maze.items():
+                    if terrain == TERRAIN_GOAL:
+                        target_x, target_y = x, y
                         break
-                if goal_x is not None:
-                    break
+            else:
+                # No fog of war - AI can see the entire maze
+                for y in range(len(maze)):
+                    for x in range(len(maze[0])):
+                        if maze[y][x] == TERRAIN_GOAL:
+                            target_x, target_y = x, y
+                            break
+                    if target_x is not None:
+                        break
 
-        # If goal not found (not explored yet in fog of war), explore randomly
-        if goal_x is None:
+        # If target not found, explore blindly
+        if target_x is None:
             self._explore_blindly(maze, fog_of_war)
             return
 
-        # Use A* pathfinding
+        # Use A* pathfinding to target
         start = (self.tile_x, self.tile_y)
-        goal = (goal_x, goal_y)
+        goal = (target_x, target_y)
 
         # Priority queue: (f_score, counter, position, path, cost)
         counter = 0
@@ -105,7 +116,7 @@ class AIAgent:
             f_score, _, current, path, current_cost = heappop(open_set)
             current_x, current_y = current
 
-            # Check if we reached the goal
+            # Check if we reached the target
             if current == goal:
                 self.path = path
                 return
@@ -137,8 +148,8 @@ class AIAgent:
                 if next_pos not in visited or new_cost < visited[next_pos]:
                     visited[next_pos] = new_cost
 
-                    # Heuristic (h_score): Manhattan distance
-                    h_score = abs(next_x - goal_x) + abs(next_y - goal_y)
+                    # Heuristic (h_score): Manhattan distance to target
+                    h_score = abs(next_x - target_x) + abs(next_y - target_y)
                     f_score = new_cost + h_score
 
                     # Add to open set
@@ -251,10 +262,27 @@ class AIAgent:
         self.tile_y = next_y
         self.moves += 1
 
+        # Check if reached a checkpoint
+        if terrain == TERRAIN_CHECKPOINT and (next_x, next_y) in self.remaining_checkpoints:
+            self.checkpoints_collected += 1
+            self.exploration_cost += self.total_cost
+            self.total_cost = 0
+            self.remaining_checkpoints.remove((next_x, next_y))
+            maze[next_y][next_x] = TERRAIN_GRASS  # Convert checkpoint to grass
+            print(f"✓ {self.name} collected checkpoint! ({self.checkpoints_collected})")
+            # Recalculate path to next checkpoint or goal
+            self.calculate_path(maze)
+            return True
+
         # Check if reached goal
         if maze[self.tile_y][self.tile_x] == TERRAIN_GOAL:
-            self.finished = True
-            return True
+            # Can only finish if all checkpoints collected
+            if not self.remaining_checkpoints:
+                self.finished = True
+                return True
+            else:
+                # At goal but haven't collected all checkpoints - recalculate to next checkpoint
+                self.calculate_path(maze)
 
         return True
 
