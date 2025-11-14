@@ -568,7 +568,7 @@ def generate_progressive_maze(width, height, goal_placement, level):
             if rand < 0.5:
                 maze[y][x] = TERRAIN_WATER
             else:
-                maze[y][x] = TERRAIN_MUd
+                maze[y][x] = TERRAIN_MUD
         elif level >= 4:
             # Level 4+: Lava introduced (impassable)
             lava_chance = min(0.15 + (level - 4) * 0.05, 0.30)  # 15% at level 4, up to 30% at level 7+
