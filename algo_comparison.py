@@ -133,24 +133,32 @@ def draw_maze(screen, maze, tile_size):
                 screen.blit(empty_sprite, rect)
 
 
-def draw_exploration_lines(screen, explored_positions, color, tile_size, alpha=150):
-    """Draw lines showing exploration pattern"""
+def draw_exploration_lines(screen, explored_positions, parent_dict, color, tile_size, alpha=150, offset=(0, 0)):
+    """Draw lines showing exploration pattern - connects each node to its parent
+
+    Args:
+        offset: (x, y) pixel offset to prevent overlapping lines from different algorithms
+    """
     if len(explored_positions) < 2:
         return
 
     # Create semi-transparent surface
     line_surface = pygame.Surface((MAZE_DISPLAY_WIDTH, MAZE_DISPLAY_HEIGHT), pygame.SRCALPHA)
 
-    # Draw lines connecting explored positions
-    points = []
-    for x, y in explored_positions:
-        center_x = x * tile_size + tile_size // 2
-        center_y = y * tile_size + tile_size // 2
-        points.append((center_x, center_y))
+    # Draw lines connecting each node to its parent
+    for node in explored_positions:
+        parent = parent_dict.get(node)
+        if parent is not None:  # Don't draw for start node (has no parent)
+            # Calculate center positions with offset
+            node_center_x = node[0] * tile_size + tile_size // 2 + offset[0]
+            node_center_y = node[1] * tile_size + tile_size // 2 + offset[1]
+            parent_center_x = parent[0] * tile_size + tile_size // 2 + offset[0]
+            parent_center_y = parent[1] * tile_size + tile_size // 2 + offset[1]
 
-    # Draw lines with some transparency
-    if len(points) > 1:
-        pygame.draw.lines(line_surface, (*color, alpha), False, points, 2)
+            # Draw line from parent to node
+            pygame.draw.line(line_surface, (*color, alpha),
+                           (parent_center_x, parent_center_y),
+                           (node_center_x, node_center_y), 2)
 
     screen.blit(line_surface, (0, 0))
 
@@ -241,10 +249,10 @@ def draw_ui(screen, width, height, stats, completed):
 
         # Status
         if algo_stats['completed']:
-            status_text = "✓ Complete"
+            status_text = "Complete"
             status_color = GREEN
         else:
-            status_text = "◯ Running..."
+            status_text = "Running..."
             status_color = YELLOW
 
         status_label = font_tiny.render(status_text, True, status_color)
@@ -262,21 +270,21 @@ def draw_ui(screen, width, height, stats, completed):
         y_pos += 60
 
     # Controls
-    y_pos = height - 180
-    controls_title = font_text.render("Controls:", True, WHITE)
-    controls_rect = controls_title.get_rect(centerx=ui_x_start + UI_WIDTH // 2, y=y_pos)
-    screen.blit(controls_title, controls_rect)
+    # y_pos = height - 180
+    # controls_title = font_text.render("Controls:", True, WHITE)
+    # controls_rect = controls_title.get_rect(centerx=ui_x_start + UI_WIDTH // 2, y=y_pos)
+    # screen.blit(controls_title, controls_rect)
 
-    y_pos += 40
-    controls = [
-        "R - New Maze",
-        "ESC - Return to Menu"
-    ]
-    for control in controls:
-        control_text = font_small.render(control, True, WHITE)
-        control_rect = control_text.get_rect(centerx=ui_x_start + UI_WIDTH // 2, y=y_pos)
-        screen.blit(control_text, control_rect)
-        y_pos += 35
+    # y_pos += 40
+    # controls = [
+    #     "R - New Maze",
+    #     "ESC - Return to Menu"
+    # ]
+    # for control in controls:
+    #     control_text = font_small.render(control, True, WHITE)
+    #     control_rect = control_text.get_rect(centerx=ui_x_start + UI_WIDTH // 2, y=y_pos)
+    #     screen.blit(control_text, control_rect)
+    #     y_pos += 35
 
 
 def find_start_and_goal(maze):
@@ -540,14 +548,17 @@ def loop(maze, visualizer, goal_placement, game_mode):
         draw_explored_cells(screen, visualizer.dijkstra_visited, DIJKSTRA_COLOR, TILE_SIZE)
         draw_explored_cells(screen, visualizer.astar_visited, ASTAR_COLOR, TILE_SIZE)
 
-        # Draw exploration lines
-        draw_exploration_lines(screen, visualizer.bfs_exploration_order, BFS_COLOR, TILE_SIZE)
-        draw_exploration_lines(screen, visualizer.dijkstra_exploration_order, DIJKSTRA_COLOR, TILE_SIZE)
-        draw_exploration_lines(screen, visualizer.astar_exploration_order, ASTAR_COLOR, TILE_SIZE)
+        # Draw exploration lines with offsets to prevent overlapping
+        # BFS - slightly left
+        draw_exploration_lines(screen, visualizer.bfs_exploration_order, visualizer.bfs_parent, BFS_COLOR, TILE_SIZE, offset=(-2, -2))
+        # Dijkstra - center (no offset)
+        draw_exploration_lines(screen, visualizer.dijkstra_exploration_order, visualizer.dijkstra_parent, DIJKSTRA_COLOR, TILE_SIZE, offset=(0, 0))
+        # A* - slightly right
+        draw_exploration_lines(screen, visualizer.astar_exploration_order, visualizer.astar_parent, ASTAR_COLOR, TILE_SIZE, offset=(2, 2))
 
-        # Draw final paths if completed (thicker lines)
+        # Draw final paths if completed (thicker lines with offsets)
         if visualizer.bfs_path:
-            points = [(x * TILE_SIZE + TILE_SIZE // 2, y * TILE_SIZE + TILE_SIZE // 2)
+            points = [(x * TILE_SIZE + TILE_SIZE // 2 - 2, y * TILE_SIZE + TILE_SIZE // 2 - 2)
                      for x, y in visualizer.bfs_path]
             if len(points) > 1:
                 pygame.draw.lines(screen, BFS_COLOR, False, points, 4)
@@ -559,7 +570,7 @@ def loop(maze, visualizer, goal_placement, game_mode):
                 pygame.draw.lines(screen, DIJKSTRA_COLOR, False, points, 4)
 
         if visualizer.astar_path:
-            points = [(x * TILE_SIZE + TILE_SIZE // 2, y * TILE_SIZE + TILE_SIZE // 2)
+            points = [(x * TILE_SIZE + TILE_SIZE // 2 + 2, y * TILE_SIZE + TILE_SIZE // 2 + 2)
                      for x, y in visualizer.astar_path]
             if len(points) > 1:
                 pygame.draw.lines(screen, ASTAR_COLOR, False, points, 4)
