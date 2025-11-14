@@ -525,6 +525,12 @@ def generate_progressive_maze(width, height, goal_placement, level):
     # Generate base maze
     maze = generate_maze(width, height, goal_placement, 'explore', 0)
 
+    # Clear all terrain variety from base maze (we'll add it back based on level)
+    for y in range(1, height - 1):
+        for x in range(1, width - 1):
+            if maze[y][x] in [TERRAIN_WATER, TERRAIN_MUD, TERRAIN_LAVA]:
+                maze[y][x] = TERRAIN_GRASS
+
     # Level-based terrain replacement
     # Higher levels have more dangerous terrain
     grass_tiles = []
