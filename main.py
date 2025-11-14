@@ -155,7 +155,7 @@ class Player:
 
 def draw_maze_with_fog(screen, maze, tile_size, player, explored_tiles, vision_range=5, all_checkpoints=None, collected_checkpoints=None):
     """Draw the maze with fog of war - only showing tiles within vision range or previously explored
-    
+
     Args:
         all_checkpoints: Set of all checkpoint positions (x, y)
         collected_checkpoints: Set of collected checkpoint positions (x, y)
@@ -164,7 +164,7 @@ def draw_maze_with_fog(screen, maze, tile_size, player, explored_tiles, vision_r
         all_checkpoints = set()
     if collected_checkpoints is None:
         collected_checkpoints = set()
-        
+
     for y, row in enumerate(maze):
         for x, cell in enumerate(row):
             rect = pygame.Rect(x * tile_size, y * tile_size, tile_size, tile_size)
@@ -177,7 +177,7 @@ def draw_maze_with_fog(screen, maze, tile_size, player, explored_tiles, vision_r
             if is_visible or is_explored:
                 # Check if this position should show a checkpoint
                 should_show_checkpoint = (x, y) in all_checkpoints and (x, y) not in collected_checkpoints
-                
+
                 # Draw the tile normally
                 if cell == TERRAIN_GRASS or cell == TERRAIN_CHECKPOINT:  # Grass - cost 1
                     screen.blit(grass_sprite, rect)
@@ -240,7 +240,7 @@ def draw_maze_with_fog(screen, maze, tile_size, player, explored_tiles, vision_r
 
 def draw_maze(screen, maze, tile_size, all_checkpoints=None, collected_checkpoints=None):
     """Draw the maze on screen using sprites with different terrain types
-    
+
     Args:
         all_checkpoints: Set of all checkpoint positions (x, y)
         collected_checkpoints: Set of collected checkpoint positions (x, y)
@@ -249,7 +249,7 @@ def draw_maze(screen, maze, tile_size, all_checkpoints=None, collected_checkpoin
         all_checkpoints = set()
     if collected_checkpoints is None:
         collected_checkpoints = set()
-        
+
     for y, row in enumerate(maze):
         for x, cell in enumerate(row):
             rect = pygame.Rect(x * tile_size, y * tile_size, tile_size, tile_size)
@@ -306,7 +306,7 @@ def draw_maze(screen, maze, tile_size, all_checkpoints=None, collected_checkpoin
                 screen.blit(empty_sprite, rect)
 
 
-def draw_ui(screen, width, height, moves, total_cost, won, game_mode='explore', player=None, num_checkpoints=3, player_mode='solo', ai_agents=None, winner=None, fog_of_war=False, energy_constraint=False, fuel_limit=100, current_level=1, level_moves=0):
+def draw_ui(screen, width, height, moves, total_cost, won, game_mode='explore', player=None, num_checkpoints=3, player_mode='solo', ai_agents=None, winner=None, fog_of_war=False, energy_constraint=False, fuel_limit=100, current_level=1, level_moves=0, player_collected_checkpoints=None, ai_collected_checkpoints=None):
     """Draw the UI elements on the right side of the screen."""
     font_title = pygame.font.Font(None, 48)
     font_text = pygame.font.Font(None, 32)
@@ -369,6 +369,13 @@ def draw_ui(screen, width, height, moves, total_cost, won, game_mode='explore', 
         player_stats_rect = player_stats.get_rect(x=ui_x_start + 50, y=y_pos)
         screen.blit(player_stats, player_stats_rect)
 
+        # Checkpoint counter for player
+        if player_mode == "competitive" and player_collected_checkpoints is not None:
+            y_pos += 30
+            player_cp_text = font_tiny.render(f"Checkpoints: {len(player_collected_checkpoints)}/{num_checkpoints}", True, BLUE)
+            player_cp_rect = player_cp_text.get_rect(x=ui_x_start + 50, y=y_pos)
+            screen.blit(player_cp_text, player_cp_rect)
+
         # AI agents stats
         y_pos += 50
         for ai in ai_agents:
@@ -381,6 +388,13 @@ def draw_ui(screen, width, height, moves, total_cost, won, game_mode='explore', 
             ai_stats = font_tiny.render(f"Moves: {ai.moves}  Cost: {ai.total_cost}", True, WHITE)
             ai_stats_rect = ai_stats.get_rect(x=ui_x_start + 50, y=y_pos)
             screen.blit(ai_stats, ai_stats_rect)
+
+            # Checkpoint counter for AI
+            if player_mode == "competitive" and ai_collected_checkpoints is not None:
+                y_pos += 25
+                ai_cp_text = font_tiny.render(f"Checkpoints: {len(ai_collected_checkpoints)}/{num_checkpoints}", True, RED)
+                ai_cp_rect = ai_cp_text.get_rect(x=ui_x_start + 50, y=y_pos)
+                screen.blit(ai_cp_text, ai_cp_rect)
 
             y_pos += 25
             ai_status = font_tiny.render(status, True, GREEN if ai.finished else GRAY)
@@ -472,26 +486,9 @@ def draw_ui(screen, width, height, moves, total_cost, won, game_mode='explore', 
 
         # Multi-goal mode specific UI
         if game_mode == 'multi-goal' and player:
-            # Checkpoints collected
-            y_pos += 70
-            
-            if player_mode == 'competitive' and ai_agents:
-                # Show both player and AI checkpoint progress
-                checkpoint_label = font_text.render("Checkpoints Progress:", True, WHITE)
-                checkpoint_label_rect = checkpoint_label.get_rect(centerx=ui_x_start + UI_WIDTH // 2, y=y_pos)
-                screen.blit(checkpoint_label, checkpoint_label_rect)
-
-                y_pos += 40
-                player_text = font_text.render(f"Player: {player.checkpoints_collected}/{num_checkpoints}", True, BLUE)
-                player_rect = player_text.get_rect(centerx=ui_x_start + UI_WIDTH // 2, y=y_pos)
-                screen.blit(player_text, player_rect)
-
-                y_pos += 35
-                ai_text = font_text.render(f"AI: {ai_agents[0].checkpoints_collected}/{num_checkpoints}", True, RED)
-                ai_rect = ai_text.get_rect(centerx=ui_x_start + UI_WIDTH // 2, y=y_pos)
-                screen.blit(ai_text, ai_rect)
-            else:
-                # Solo mode - just show player checkpoints
+            # Solo mode - show checkpoints in UI panel
+            if player_mode != 'competitive':
+                y_pos += 70
                 checkpoint_label = font_text.render("Checkpoints:", True, WHITE)
                 checkpoint_label_rect = checkpoint_label.get_rect(centerx=ui_x_start + UI_WIDTH // 2, y=y_pos)
                 screen.blit(checkpoint_label, checkpoint_label_rect)
@@ -501,16 +498,16 @@ def draw_ui(screen, width, height, moves, total_cost, won, game_mode='explore', 
                 checkpoint_rect = checkpoint_text.get_rect(centerx=ui_x_start + UI_WIDTH // 2, y=y_pos)
                 screen.blit(checkpoint_text, checkpoint_rect)
 
-            # Exploration cost
-            y_pos += 70
-            explore_label = font_text.render("Exploration Cost:", True, WHITE)
-            explore_label_rect = explore_label.get_rect(centerx=ui_x_start + UI_WIDTH // 2, y=y_pos)
-            screen.blit(explore_label, explore_label_rect)
+                # Exploration cost
+                y_pos += 70
+                explore_label = font_text.render("Exploration Cost:", True, WHITE)
+                explore_label_rect = explore_label.get_rect(centerx=ui_x_start + UI_WIDTH // 2, y=y_pos)
+                screen.blit(explore_label, explore_label_rect)
 
-            y_pos += 45
-            explore_text = font_title.render(str(player.exploration_cost), True, (100, 200, 255))
-            explore_rect = explore_text.get_rect(centerx=ui_x_start + UI_WIDTH // 2, y=y_pos)
-            screen.blit(explore_text, explore_rect)
+                y_pos += 45
+                explore_text = font_title.render(str(player.exploration_cost), True, (100, 200, 255))
+                explore_rect = explore_text.get_rect(centerx=ui_x_start + UI_WIDTH // 2, y=y_pos)
+                screen.blit(explore_text, explore_rect)
 
         # Terrain legend
         y_pos += 90
@@ -811,8 +808,9 @@ def loop(maze, player, input_controller, moves, won, goal_placement, game_mode='
                 # Multi-goal mode: Check if landed on checkpoint
                 if game_mode == 'multi-goal' and maze[player.tile_y][player.tile_x] == TERRAIN_CHECKPOINT:
                     player.checkpoints_collected += 1
-                    player.exploration_cost += player.total_cost
-                    player.total_cost = 0
+                    # Don't reset cost - keep accumulating
+                    # player.exploration_cost += player.total_cost
+                    # player.total_cost = 0
                     player_collected_checkpoints.add((player.tile_x, player.tile_y))  # Track collection for rendering
                     # Don't convert checkpoint to grass - let rendering handle visibility
                     # maze[player.tile_y][player.tile_x] = TERRAIN_GRASS
@@ -902,7 +900,7 @@ def loop(maze, player, input_controller, moves, won, goal_placement, game_mode='
         else:
             # Non multi-goal mode
             collected_checkpoints = set()
-            
+
         if fog_of_war:
             draw_maze_with_fog(screen, maze, TILE_SIZE, player, explored_tiles, all_checkpoints=all_checkpoints, collected_checkpoints=collected_checkpoints)
         else:
@@ -927,7 +925,7 @@ def loop(maze, player, input_controller, moves, won, goal_placement, game_mode='
 
         # Draw UI (pass appropriate moves count based on game mode)
         display_moves = total_moves if game_mode == 'dynamic' else moves
-        draw_ui(screen, TOTAL_WINDOW_WIDTH, TOTAL_WINDOW_HEIGHT, display_moves, player.total_cost, won, game_mode, player, num_checkpoints, player_mode, ai_agents, winner, fog_of_war, energy_constraint, fuel_limit, current_level, level_moves)
+        draw_ui(screen, TOTAL_WINDOW_WIDTH, TOTAL_WINDOW_HEIGHT, display_moves, player.total_cost, won, game_mode, player, num_checkpoints, player_mode, ai_agents, winner, fog_of_war, energy_constraint, fuel_limit, current_level, level_moves, player_collected_checkpoints, ai_collected_checkpoints)
 
         # Handle events
         for event in pygame.event.get():
@@ -960,8 +958,9 @@ def loop(maze, player, input_controller, moves, won, goal_placement, game_mode='
                     # Multi-goal mode: Check if landed on checkpoint
                     if game_mode == 'multi-goal' and maze[player.tile_y][player.tile_x] == TERRAIN_CHECKPOINT:
                         player.checkpoints_collected += 1
-                        player.exploration_cost += player.total_cost
-                        player.total_cost = 0
+                        # Don't reset cost - keep accumulating
+                        # player.exploration_cost += player.total_cost
+                        # player.total_cost = 0
                         player_collected_checkpoints.add((player.tile_x, player.tile_y))  # Track collection for rendering
                         # Don't convert checkpoint to grass - let rendering handle visibility
                         # maze[player.tile_y][player.tile_x] = TERRAIN_GRASS

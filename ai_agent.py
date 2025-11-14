@@ -267,8 +267,9 @@ class AIAgent:
             # Collect the checkpoint (even if terrain is already grass from player collecting it)
             if terrain == TERRAIN_CHECKPOINT or terrain == TERRAIN_GRASS:
                 self.checkpoints_collected += 1
-                self.exploration_cost += self.total_cost
-                self.total_cost = 0
+                # Don't reset cost - keep accumulating
+                # self.exploration_cost += self.total_cost
+                # self.total_cost = 0
                 self.remaining_checkpoints.remove((next_x, next_y))
                 # Don't convert checkpoint to grass - let rendering handle visibility
                 # maze[next_y][next_x] = TERRAIN_GRASS
