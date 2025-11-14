@@ -347,6 +347,39 @@ def draw_settings_screen(screen, settings_state):
         screen.blit(energy_desc, energy_desc_rect)
         y_pos += 50
 
+    # AI Turn Frequency Setting
+    y_pos += 20
+    ai_turn_title = text_font.render("AI Turn Frequency (Competitive)", True, YELLOW)
+    ai_turn_title_rect = ai_turn_title.get_rect(center=(center_x, y_pos))
+    screen.blit(ai_turn_title, ai_turn_title_rect)
+
+    y_pos += 35
+    ai_turn_desc = tiny_font.render("AI moves after every X player moves", True, GRAY)
+    ai_turn_desc_rect = ai_turn_desc.get_rect(center=(center_x, y_pos))
+    screen.blit(ai_turn_desc, ai_turn_desc_rect)
+
+    y_pos += 35
+    # AI turn frequency adjustment buttons
+    ai_turn_freq = settings_state.get('ai_turn_frequency', 1)
+    button_spacing = 100
+
+    minus_btn = small_font.render("[-]", True, WHITE)
+    minus_rect = minus_btn.get_rect(center=(center_x - button_spacing, y_pos))
+    screen.blit(minus_btn, minus_rect)
+    clickable_rects['ai_turn_decrease'] = pygame.Rect(center_x - button_spacing - 20, y_pos - 15, 40, 30)
+
+    freq_text = f"Every {ai_turn_freq} move{'s' if ai_turn_freq > 1 else ''}"
+    freq_value = text_font.render(freq_text, True, YELLOW)
+    freq_rect = freq_value.get_rect(center=(center_x, y_pos))
+    screen.blit(freq_value, freq_rect)
+
+    plus_btn = small_font.render("[+]", True, WHITE)
+    plus_rect = plus_btn.get_rect(center=(center_x + button_spacing, y_pos))
+    screen.blit(plus_btn, plus_rect)
+    clickable_rects['ai_turn_increase'] = pygame.Rect(center_x + button_spacing - 20, y_pos - 15, 40, 30)
+
+    y_pos += 50
+
     # Instructions
     y_pos += 20
     inst_text = small_font.render("Click on settings to toggle them", True, GRAY)
@@ -550,7 +583,8 @@ def show_menu():
         'goal_mode_expanded': False,
         'fog_of_war': False,
         'energy_constraint': False,
-        'fuel_limit': 100
+        'fuel_limit': 100,
+        'ai_turn_frequency': 1  # AI moves after every X player moves
     }
 
     # Create buttons
@@ -673,7 +707,8 @@ def show_menu():
                 fog_of_war = settings_state['fog_of_war']
                 energy_constraint = settings_state['energy_constraint']
                 fuel_limit = settings_state['fuel_limit']
-                return ("start", goal_placement, maze_mode, player_mode, fog_of_war, energy_constraint, fuel_limit)  # Start the game with settings
+                ai_turn_frequency = settings_state['ai_turn_frequency']
+                return ("start", goal_placement, maze_mode, player_mode, fog_of_war, energy_constraint, fuel_limit, ai_turn_frequency)  # Start the game with settings
 
         elif current_screen == "settings":
             # Draw settings screen
@@ -706,6 +741,12 @@ def show_menu():
                         settings_state['fuel_limit'] = max(10, settings_state['fuel_limit'] - 10)
                     elif 'fuel_increase' in option_rects and option_rects['fuel_increase'].collidepoint(mouse_pos):
                         settings_state['fuel_limit'] = min(500, settings_state['fuel_limit'] + 10)
+
+                # AI turn frequency adjustment
+                if 'ai_turn_decrease' in option_rects and option_rects['ai_turn_decrease'].collidepoint(mouse_pos):
+                    settings_state['ai_turn_frequency'] = max(1, settings_state['ai_turn_frequency'] - 1)
+                elif 'ai_turn_increase' in option_rects and option_rects['ai_turn_increase'].collidepoint(mouse_pos):
+                    settings_state['ai_turn_frequency'] = min(10, settings_state['ai_turn_frequency'] + 1)
 
             # Update and draw back button
             back_button.update(mouse_pos)
@@ -771,6 +812,7 @@ if __name__ == "__main__":
             fog_of_war = result[4] if len(result) > 4 else False
             energy_constraint = result[5] if len(result) > 5 else False
             fuel_limit = result[6] if len(result) > 6 else 100
+            ai_turn_frequency = result[7] if len(result) > 7 else 1
 
             # Start the appropriate game mode
             if player_mode == 'multi-agent':
@@ -782,7 +824,7 @@ if __name__ == "__main__":
                 algo_comparison.start(goal_placement, maze_mode, fog_of_war, energy_constraint, fuel_limit)
             else:
                 # Solo or competitive mode (progressive levels in dynamic mode)
-                main.start(goal_placement, maze_mode, 5, player_mode, fog_of_war, energy_constraint, fuel_limit)
+                main.start(goal_placement, maze_mode, 5, player_mode, fog_of_war, energy_constraint, fuel_limit, ai_turn_frequency)
 
             # Reinitialize pygame after game ends (pygame.quit() is called in main.py)
             reinitialize_pygame()

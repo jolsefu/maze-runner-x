@@ -630,7 +630,7 @@ def generate_progressive_maze(width, height, goal_placement, level):
     return maze
 
 
-def start(goal_placement='corner', game_mode='explore', num_checkpoints=5, player_mode='solo', fog_of_war=False, energy_constraint=False, fuel_limit=100):
+def start(goal_placement='corner', game_mode='explore', num_checkpoints=5, player_mode='solo', fog_of_war=False, energy_constraint=False, fuel_limit=100, ai_turn_frequency=1):
     """Start the game
 
     Args:
@@ -641,6 +641,7 @@ def start(goal_placement='corner', game_mode='explore', num_checkpoints=5, playe
         fog_of_war: Enable fog of war (limited vision)
         energy_constraint: Enable energy/fuel limit
         fuel_limit: Maximum fuel/energy available
+        ai_turn_frequency: AI moves after every X player moves (competitive mode only)
     """
     # Generate maze (use progressive generation for dynamic mode starting at level 1)
     if game_mode == 'dynamic':
@@ -692,13 +693,13 @@ def start(goal_placement='corner', game_mode='explore', num_checkpoints=5, playe
     moves = 0
     won = False
 
-    loop(maze, player, input_controller, moves, won, goal_placement, game_mode, num_checkpoints, player_mode, ai_agents, fog_of_war, energy_constraint, fuel_limit)
+    loop(maze, player, input_controller, moves, won, goal_placement, game_mode, num_checkpoints, player_mode, ai_agents, fog_of_war, energy_constraint, fuel_limit, ai_turn_frequency)
     print("=" * 50)
     print("PYGAME STOPPED".center(50))
     print("=" * 50)
 
 
-def loop(maze, player, input_controller, moves, won, goal_placement, game_mode='explore', num_checkpoints=3, player_mode='solo', ai_agents=None, fog_of_war=False, energy_constraint=False, fuel_limit=100):
+def loop(maze, player, input_controller, moves, won, goal_placement, game_mode='explore', num_checkpoints=3, player_mode='solo', ai_agents=None, fog_of_war=False, energy_constraint=False, fuel_limit=100, ai_turn_frequency=1):
     """Main game loop"""
     run = True
     if ai_agents is None:
@@ -708,6 +709,9 @@ def loop(maze, player, input_controller, moves, won, goal_placement, game_mode='
     current_level = 1
     level_moves = 0  # Moves in current level
     total_moves = 0  # Total moves across all levels
+
+    # Track player moves for AI turn frequency in competitive mode
+    player_move_counter = 0
 
     # Track checkpoint collection for multi-goal mode
     all_checkpoints = set()  # All checkpoint positions
@@ -736,6 +740,7 @@ def loop(maze, player, input_controller, moves, won, goal_placement, game_mode='
     # For visualizing AI moves
     ai_animation_queue = []  # Queue of AI agents to animate
     ai_animation_delay = 0  # Delay counter for smoother animation
+    ai_moves_remaining = 0  # Track how many moves the AI needs to make this turn
     winner = None  # Track who won in competitive mode
     loser = None  # Track who lost (ran out of energy)
 
@@ -782,17 +787,25 @@ def loop(maze, player, input_controller, moves, won, goal_placement, game_mode='
                         print(f"Moves: {current_ai.moves}")
                         print(f"Total Cost: {current_ai.total_cost}")
 
-                    # Always remove AI from queue after one move (turn-based)
-                    ai_animation_queue.pop(0)
+                    # Decrement moves remaining for this AI turn
+                    ai_moves_remaining -= 1
+                    
+                    # Remove AI from queue after completing all moves for this turn
+                    if ai_moves_remaining <= 0 or current_ai.finished or current_ai.out_of_energy:
+                        ai_animation_queue.pop(0)
+                        ai_moves_remaining = 0
 
         # Update mouse movement (if mouse is held)
         if not won and not ai_animation_queue:  # Don't allow player movement during AI animation
             mouse_move_cost = input_controller.update_mouse_movement(player, maze, delay_frames=5)
             if mouse_move_cost > 0:
                 moves += 1
+                player_move_counter += 1  # Increment turn counter
 
-                # After player moves in competitive mode, queue AI moves
-                if player_mode == 'competitive':
+                # After player moves in competitive mode, queue AI moves based on turn frequency
+                if player_mode == 'competitive' and player_move_counter >= ai_turn_frequency:
+                    ai_moves_remaining = player_move_counter  # AI gets same number of moves as player made
+                    player_move_counter = 0  # Reset counter
                     for ai in ai_agents:
                         if not ai.finished and ai not in ai_animation_queue:
                             # Just add to queue, path will be calculated when AI moves
@@ -941,6 +954,8 @@ def loop(maze, player, input_controller, moves, won, goal_placement, game_mode='
                 move_cost = input_controller.handle_keyboard_input(event, player, maze)
 
                 if move_cost > 0:
+                    player_move_counter += 1  # Increment turn counter
+
                     # Track moves based on game mode
                     if game_mode == 'dynamic':
                         level_moves += 1
@@ -948,8 +963,10 @@ def loop(maze, player, input_controller, moves, won, goal_placement, game_mode='
                     else:
                         moves += 1
 
-                    # After player moves in competitive mode, queue AI moves
-                    if player_mode == 'competitive':
+                    # After player moves in competitive mode, queue AI moves based on turn frequency
+                    if player_mode == 'competitive' and player_move_counter >= ai_turn_frequency:
+                        ai_moves_remaining = player_move_counter  # AI gets same number of moves as player made
+                        player_move_counter = 0  # Reset counter
                         for ai in ai_agents:
                             if not ai.finished and ai not in ai_animation_queue:
                                 # Just add to queue, path will be calculated when AI moves
