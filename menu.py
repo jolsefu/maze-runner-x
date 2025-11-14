@@ -781,7 +781,7 @@ if __name__ == "__main__":
                 # Algorithm comparison dashboard: visualize BFS, Dijkstra, A*
                 algo_comparison.start(goal_placement, maze_mode, fog_of_war, energy_constraint, fuel_limit)
             else:
-                # Solo or competitive mode
+                # Solo or competitive mode (progressive levels in dynamic mode)
                 main.start(goal_placement, maze_mode, 5, player_mode, fog_of_war, energy_constraint, fuel_limit)
 
             # Reinitialize pygame after game ends (pygame.quit() is called in main.py)

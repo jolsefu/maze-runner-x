@@ -280,7 +280,7 @@ def draw_maze(screen, maze, tile_size):
                 screen.blit(empty_sprite, rect)
 
 
-def draw_ui(screen, width, height, moves, total_cost, won, game_mode='explore', player=None, num_checkpoints=3, player_mode='solo', ai_agents=None, winner=None, fog_of_war=False, energy_constraint=False, fuel_limit=100):
+def draw_ui(screen, width, height, moves, total_cost, won, game_mode='explore', player=None, num_checkpoints=3, player_mode='solo', ai_agents=None, winner=None, fog_of_war=False, energy_constraint=False, fuel_limit=100, current_level=1, level_moves=0):
     """Draw the UI elements on the right side of the screen."""
     font_title = pygame.font.Font(None, 48)
     font_text = pygame.font.Font(None, 32)
@@ -303,9 +303,19 @@ def draw_ui(screen, width, height, moves, total_cost, won, game_mode='explore', 
 
     # Title
     y_pos = 50
-    title_text = font_title.render("MAZE RUNNER", True, YELLOW)
+    if game_mode == 'dynamic':
+        title_text = font_title.render("PROGRESSIVE", True, YELLOW)
+    else:
+        title_text = font_title.render("MAZE RUNNER", True, YELLOW)
     title_rect = title_text.get_rect(centerx=ui_x_start + UI_WIDTH // 2, y=y_pos)
     screen.blit(title_text, title_rect)
+
+    # Show level for dynamic mode
+    if game_mode == 'dynamic':
+        y_pos += 55
+        level_text = font_title.render(f"LEVEL {current_level}", True, CYAN)
+        level_rect = level_text.get_rect(centerx=ui_x_start + UI_WIDTH // 2, y=y_pos)
+        screen.blit(level_text, level_rect)
 
     # Show fog of war indicator if active
     if fog_of_war:
@@ -366,14 +376,39 @@ def draw_ui(screen, width, height, moves, total_cost, won, game_mode='explore', 
         # Solo mode UI (original)
         # Moves counter
         y_pos += 100
-        moves_label = font_text.render("Moves:", True, WHITE)
-        moves_label_rect = moves_label.get_rect(centerx=ui_x_start + UI_WIDTH // 2, y=y_pos)
-        screen.blit(moves_label, moves_label_rect)
 
-        y_pos += 45
-        moves_text = font_title.render(str(moves), True, GREEN)
-        moves_rect = moves_text.get_rect(centerx=ui_x_start + UI_WIDTH // 2, y=y_pos)
-        screen.blit(moves_text, moves_rect)
+        # Show different stats for dynamic mode (progressive levels)
+        if game_mode == 'dynamic':
+            # Total moves across all levels
+            moves_label = font_text.render("Total Moves:", True, WHITE)
+            moves_label_rect = moves_label.get_rect(centerx=ui_x_start + UI_WIDTH // 2, y=y_pos)
+            screen.blit(moves_label, moves_label_rect)
+
+            y_pos += 45
+            moves_text = font_title.render(str(moves), True, GREEN)
+            moves_rect = moves_text.get_rect(centerx=ui_x_start + UI_WIDTH // 2, y=y_pos)
+            screen.blit(moves_text, moves_rect)
+
+            # Current level moves
+            y_pos += 60
+            level_moves_label = font_small.render("Current Level:", True, WHITE)
+            level_moves_label_rect = level_moves_label.get_rect(centerx=ui_x_start + UI_WIDTH // 2, y=y_pos)
+            screen.blit(level_moves_label, level_moves_label_rect)
+
+            y_pos += 35
+            level_moves_text = font_text.render(str(level_moves), True, YELLOW)
+            level_moves_rect = level_moves_text.get_rect(centerx=ui_x_start + UI_WIDTH // 2, y=y_pos)
+            screen.blit(level_moves_text, level_moves_rect)
+        else:
+            # Normal mode - just show moves
+            moves_label = font_text.render("Moves:", True, WHITE)
+            moves_label_rect = moves_label.get_rect(centerx=ui_x_start + UI_WIDTH // 2, y=y_pos)
+            screen.blit(moves_label, moves_label_rect)
+
+            y_pos += 45
+            moves_text = font_title.render(str(moves), True, GREEN)
+            moves_rect = moves_text.get_rect(centerx=ui_x_start + UI_WIDTH // 2, y=y_pos)
+            screen.blit(moves_text, moves_rect)
 
         # Total cost
         y_pos += 70
@@ -475,80 +510,77 @@ def find_start_position(maze):
     return 1, 1
 
 
-def spawn_dynamic_obstacles(maze, player, moves):
-    """Spawn obstacles dynamically based on player movement (for dynamic mode)
+def generate_progressive_maze(width, height, goal_placement, level):
+    """Generate a maze with difficulty based on the current level
 
     Args:
-        maze: The maze array
-        player: The player object
-        moves: Number of moves made
+        width: Maze width
+        height: Maze height
+        goal_placement: Where to place the goal
+        level: Current difficulty level (1-10+)
+
+    Returns:
+        Generated maze with difficulty scaled to level
     """
-    # Spawn obstacles every 4 moves
-    if moves % 4 != 0:
-        return
+    # Generate base maze
+    maze = generate_maze(width, height, goal_placement, 'explore', 0)
 
-    # Calculate distance to goal
-    goal_x, goal_y = None, None
-    for y in range(len(maze)):
-        for x in range(len(maze[0])):
-            if maze[y][x] == TERRAIN_GOAL:
-                goal_x, goal_y = x, y
-                break
-        if goal_x is not None:
-            break
-
-    if goal_x is None:
-        return
-
-    player_distance_to_goal = abs(player.tile_x - goal_x) + abs(player.tile_y - goal_y)
-
-    # Find all grass tiles that could become obstacles
-    valid_positions = []
-    for y in range(1, len(maze) - 1):
-        for x in range(1, len(maze[0]) - 1):
+    # Level-based terrain replacement
+    # Higher levels have more dangerous terrain
+    grass_tiles = []
+    for y in range(1, height - 1):
+        for x in range(1, width - 1):
             if maze[y][x] == TERRAIN_GRASS:
-                # Don't place obstacles too close to player (within 3 tiles)
-                if abs(x - player.tile_x) + abs(y - player.tile_y) > 3:
-                    # Don't place obstacles on the goal
-                    if not (x == goal_x and y == goal_y):
-                        valid_positions.append((x, y))
+                # Don't modify start and goal areas
+                if not (x == 1 and y == 1):  # Not start
+                    goal_x = width - 2 if goal_placement == 'corner' else width // 2
+                    goal_y = height - 2 if goal_placement == 'corner' else height // 2
+                    if not (abs(x - goal_x) <= 2 and abs(y - goal_y) <= 2):  # Not near goal
+                        grass_tiles.append((x, y))
 
-    if not valid_positions:
-        return
+    if not grass_tiles:
+        return maze
 
-    # Spawn 1-2 obstacles per trigger
-    num_obstacles = random.randint(1, 2)
-    num_obstacles = min(num_obstacles, len(valid_positions))
+    # Determine how many tiles to convert based on level
+    # Level 1: 5% of grass, Level 5: 25%, Level 10+: 40%
+    conversion_rate = min(0.05 + (level - 1) * 0.035, 0.40)
+    num_conversions = int(len(grass_tiles) * conversion_rate)
 
-    for _ in range(num_obstacles):
-        x, y = random.choice(valid_positions)
-        valid_positions.remove((x, y))
+    # Randomly select tiles to convert
+    import random
+    tiles_to_convert = random.sample(grass_tiles, min(num_conversions, len(grass_tiles)))
 
-        # Determine obstacle type based on distance to goal
-        # Closer to goal = more dangerous obstacles
+    for x, y in tiles_to_convert:
+        # Obstacle distribution based on level
         rand = random.random()
 
-        if player_distance_to_goal < 15:  # Close to goal
-            if rand < 0.3:  # 30% lava
-                maze[y][x] = TERRAIN_LAVA
-            elif rand < 0.6:  # 30% mud
-                maze[y][x] = TERRAIN_MUD
-            else:  # 40% water
+        if level == 1:
+            # Level 1: Only water (cost 3)
+            maze[y][x] = TERRAIN_WATER
+        elif level == 2:
+            # Level 2: Water and some mud
+            if rand < 0.7:
                 maze[y][x] = TERRAIN_WATER
-        elif player_distance_to_goal < 30:  # Medium distance
-            if rand < 0.15:  # 15% lava
-                maze[y][x] = TERRAIN_LAVA
-            elif rand < 0.45:  # 30% mud
+            else:
                 maze[y][x] = TERRAIN_MUD
-            else:  # 55% water
+        elif level == 3:
+            # Level 3: More mud appears
+            if rand < 0.5:
                 maze[y][x] = TERRAIN_WATER
-        else:  # Far from goal
-            if rand < 0.05:  # 5% lava
+            else:
+                maze[y][x] = TERRAIN_MUd
+        elif level >= 4:
+            # Level 4+: Lava introduced (impassable)
+            lava_chance = min(0.15 + (level - 4) * 0.05, 0.30)  # 15% at level 4, up to 30% at level 7+
+
+            if rand < lava_chance:
                 maze[y][x] = TERRAIN_LAVA
-            elif rand < 0.35:  # 30% mud
+            elif rand < 0.5 + lava_chance / 2:
                 maze[y][x] = TERRAIN_MUD
-            else:  # 65% water
+            else:
                 maze[y][x] = TERRAIN_WATER
+
+    return maze
 
 
 def start(goal_placement='corner', game_mode='explore', num_checkpoints=5, player_mode='solo', fog_of_war=False, energy_constraint=False, fuel_limit=100):
@@ -563,8 +595,11 @@ def start(goal_placement='corner', game_mode='explore', num_checkpoints=5, playe
         energy_constraint: Enable energy/fuel limit
         fuel_limit: Maximum fuel/energy available
     """
-    # Generate maze
-    maze = generate_maze(MAZE_WIDTH, MAZE_HEIGHT, goal_placement, game_mode, num_checkpoints)
+    # Generate maze (use progressive generation for dynamic mode starting at level 1)
+    if game_mode == 'dynamic':
+        maze = generate_progressive_maze(MAZE_WIDTH, MAZE_HEIGHT, goal_placement, 1)
+    else:
+        maze = generate_maze(MAZE_WIDTH, MAZE_HEIGHT, goal_placement, game_mode, num_checkpoints)
 
     # Find start position and create player
     start_x, start_y = find_start_position(maze)
@@ -611,6 +646,11 @@ def loop(maze, player, input_controller, moves, won, goal_placement, game_mode='
     run = True
     if ai_agents is None:
         ai_agents = []
+
+    # Progressive levels for dynamic mode
+    current_level = 1
+    level_moves = 0  # Moves in current level
+    total_moves = 0  # Total moves across all levels
 
     # Track explored tiles for fog of war (stores all tiles the player has seen)
     explored_tiles = set()
@@ -684,9 +724,12 @@ def loop(maze, player, input_controller, moves, won, goal_placement, game_mode='
                             # Just add to queue, path will be calculated when AI moves
                             ai_animation_queue.append(ai)
 
-                # Dynamic mode: Spawn obstacles as player moves
+                # Track moves based on game mode
                 if game_mode == 'dynamic':
-                    spawn_dynamic_obstacles(maze, player, moves)
+                    level_moves += 1
+                    total_moves += 1
+                else:
+                    moves += 1
 
                 # Multi-goal mode: Check if landed on checkpoint
                 if game_mode == 'multi-goal' and maze[player.tile_y][player.tile_x] == TERRAIN_CHECKPOINT:
@@ -715,15 +758,44 @@ def loop(maze, player, input_controller, moves, won, goal_placement, game_mode='
                     win_condition = win_condition and player.checkpoints_collected >= num_checkpoints
 
                 if win_condition and winner is None and not player.out_of_energy:
-                    won = True
-                    winner = "Player"
-                    print(f"\n🎉 You won! 🎉")
-                    print(f"Moves: {moves}")
-                    if game_mode == 'multi-goal':
-                        print(f"Final Cost: {player.total_cost}")
-                        print(f"Total Exploration Cost: {player.exploration_cost + player.total_cost}")
+                    # Dynamic mode: Progress to next level instead of ending
+                    if game_mode == 'dynamic':
+                        print(f"✓ Level {current_level} completed! Moves: {level_moves}")
+                        current_level += 1
+                        level_moves = 0
+
+                        # Generate new progressive maze with increased difficulty
+                        maze = generate_progressive_maze(MAZE_WIDTH, MAZE_HEIGHT, goal_placement, current_level)
+                        start_x, start_y = find_start_position(maze)
+
+                        # Reset player position but keep total stats
+                        player.tile_x = start_x
+                        player.tile_y = start_y
+
+                        # Reset explored tiles for fog of war
+                        if fog_of_war:
+                            explored_tiles.clear()
+                            vision_range = 5
+                            for dy in range(-vision_range, vision_range + 1):
+                                for dx in range(-vision_range, vision_range + 1):
+                                    tile_x = player.tile_x + dx
+                                    tile_y = player.tile_y + dy
+                                    if 0 <= tile_x < len(maze[0]) and 0 <= tile_y < len(maze):
+                                        if abs(dx) + abs(dy) <= vision_range:
+                                            explored_tiles.add((tile_x, tile_y))
+
+                        print(f"→ Starting Level {current_level}")
                     else:
-                        print(f"Total Cost: {player.total_cost}\n")
+                        # Non-dynamic modes: End the game
+                        won = True
+                        winner = "Player"
+                        print(f"\n🎉 You won! 🎉")
+                        print(f"Moves: {moves}")
+                        if game_mode == 'multi-goal':
+                            print(f"Final Cost: {player.total_cost}")
+                            print(f"Total Exploration Cost: {player.exploration_cost + player.total_cost}")
+                        else:
+                            print(f"Total Cost: {player.total_cost}\n")
 
         # Fill background
         screen.fill(BLACK)
@@ -763,8 +835,9 @@ def loop(maze, player, input_controller, moves, won, goal_placement, game_mode='
         # Draw player
         player.draw(screen)
 
-        # Draw UI
-        draw_ui(screen, TOTAL_WINDOW_WIDTH, TOTAL_WINDOW_HEIGHT, moves, player.total_cost, won, game_mode, player, num_checkpoints, player_mode, ai_agents, winner, fog_of_war, energy_constraint, fuel_limit)
+        # Draw UI (pass appropriate moves count based on game mode)
+        display_moves = total_moves if game_mode == 'dynamic' else moves
+        draw_ui(screen, TOTAL_WINDOW_WIDTH, TOTAL_WINDOW_HEIGHT, display_moves, player.total_cost, won, game_mode, player, num_checkpoints, player_mode, ai_agents, winner, fog_of_war, energy_constraint, fuel_limit, current_level, level_moves)
 
         # Handle events
         for event in pygame.event.get():
@@ -780,7 +853,12 @@ def loop(maze, player, input_controller, moves, won, goal_placement, game_mode='
                 move_cost = input_controller.handle_keyboard_input(event, player, maze)
 
                 if move_cost > 0:
-                    moves += 1
+                    # Track moves based on game mode
+                    if game_mode == 'dynamic':
+                        level_moves += 1
+                        total_moves += 1
+                    else:
+                        moves += 1
 
                     # After player moves in competitive mode, queue AI moves
                     if player_mode == 'competitive':
@@ -788,10 +866,6 @@ def loop(maze, player, input_controller, moves, won, goal_placement, game_mode='
                             if not ai.finished and ai not in ai_animation_queue:
                                 # Just add to queue, path will be calculated when AI moves
                                 ai_animation_queue.append(ai)
-
-                    # Dynamic mode: Spawn obstacles as player moves
-                    if game_mode == 'dynamic':
-                        spawn_dynamic_obstacles(maze, player, moves)
 
                     # Multi-goal mode: Check if landed on checkpoint
                     if game_mode == 'multi-goal' and maze[player.tile_y][player.tile_x] == TERRAIN_CHECKPOINT:
@@ -812,6 +886,8 @@ def loop(maze, player, input_controller, moves, won, goal_placement, game_mode='
                         else:
                             winner = None  # Solo mode - player just loses
                             print(f"\n⚡ You ran out of energy! ⚡")
+                            if game_mode == 'dynamic':
+                                print(f"Reached Level {current_level}")
                             print(f"Game Over!")
 
                     # Check if won
@@ -820,20 +896,53 @@ def loop(maze, player, input_controller, moves, won, goal_placement, game_mode='
                         win_condition = win_condition and player.checkpoints_collected >= num_checkpoints
 
                     if win_condition and winner is None and not player.out_of_energy:
-                        won = True
-                        winner = "Player"
-                        print(f"\n🎉 You won! 🎉")
-                        print(f"Moves: {moves}")
-                        if game_mode == 'multi-goal':
-                            print(f"Final Cost: {player.total_cost}")
-                            print(f"Total Exploration Cost: {player.exploration_cost + player.total_cost}")
+                        # Dynamic mode: Progress to next level instead of ending
+                        if game_mode == 'dynamic':
+                            print(f"✓ Level {current_level} completed! Moves: {level_moves}")
+                            current_level += 1
+                            level_moves = 0
+
+                            # Generate new progressive maze with increased difficulty
+                            maze = generate_progressive_maze(MAZE_WIDTH, MAZE_HEIGHT, goal_placement, current_level)
+                            start_x, start_y = find_start_position(maze)
+
+                            # Reset player position but keep total stats
+                            player.tile_x = start_x
+                            player.tile_y = start_y
+
+                            # Reset explored tiles for fog of war
+                            if fog_of_war:
+                                explored_tiles.clear()
+                                vision_range = 5
+                                for dy in range(-vision_range, vision_range + 1):
+                                    for dx in range(-vision_range, vision_range + 1):
+                                        tile_x = player.tile_x + dx
+                                        tile_y = player.tile_y + dy
+                                        if 0 <= tile_x < len(maze[0]) and 0 <= tile_y < len(maze):
+                                            if abs(dx) + abs(dy) <= vision_range:
+                                                explored_tiles.add((tile_x, tile_y))
+
+                            print(f"→ Starting Level {current_level}")
                         else:
-                            print(f"Total Cost: {player.total_cost}\n")
+                            # Non-dynamic modes: End the game
+                            won = True
+                            winner = "Player"
+                            print(f"\n🎉 You won! 🎉")
+                            print(f"Moves: {moves}")
+                            if game_mode == 'multi-goal':
+                                print(f"Final Cost: {player.total_cost}")
+                                print(f"Total Exploration Cost: {player.exploration_cost + player.total_cost}")
+                            else:
+                                print(f"Total Cost: {player.total_cost}\n")
 
             # Restart with new maze
             if event.type == pygame.KEYDOWN and event.key == pygame.K_r:
                 # Generate new maze with same settings
-                maze = generate_maze(MAZE_WIDTH, MAZE_HEIGHT, goal_placement, game_mode, num_checkpoints)
+                if game_mode == 'dynamic':
+                    # Start from level 1 on restart
+                    maze = generate_progressive_maze(MAZE_WIDTH, MAZE_HEIGHT, goal_placement, 1)
+                else:
+                    maze = generate_maze(MAZE_WIDTH, MAZE_HEIGHT, goal_placement, game_mode, num_checkpoints)
                 start_x, start_y = find_start_position(maze)
 
                 # Recreate player sprite
@@ -849,6 +958,12 @@ def loop(maze, player, input_controller, moves, won, goal_placement, game_mode='
                 winner = None
                 loser = None
                 ai_animation_queue = []
+
+                # Reset progressive level stats in dynamic mode
+                if game_mode == 'dynamic':
+                    current_level = 1
+                    level_moves = 0
+                    total_moves = 0
 
                 # Reset fog of war
                 if fog_of_war:
