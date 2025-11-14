@@ -380,6 +380,47 @@ def draw_settings_screen(screen, settings_state):
 
     y_pos += 50
 
+    # Timer Limiter Setting
+    y_pos += 20
+    timer_enabled = settings_state.get('timer_enabled', False)
+    timer_status = "[ON]" if timer_enabled else "[OFF]"
+    timer_color = GREEN if timer_enabled else GRAY
+    timer_text = text_font.render(f"Time Limit {timer_status}", True, timer_color)
+    timer_rect = timer_text.get_rect(center=(center_x, y_pos))
+    screen.blit(timer_text, timer_rect)
+    clickable_rects['timer_enabled'] = pygame.Rect(center_x - 200, y_pos - 20, 400, 40)
+
+    y_pos += 35
+    if timer_enabled:
+        time_limit = settings_state.get('time_limit', 60)
+        time_desc = tiny_font.render(f"Time limit: {time_limit} seconds (Click +/- to adjust)", True, GRAY)
+        time_desc_rect = time_desc.get_rect(center=(center_x, y_pos))
+        screen.blit(time_desc, time_desc_rect)
+
+        y_pos += 30
+        # Time adjustment buttons - centered layout
+        button_spacing = 80
+        minus_btn = small_font.render("[-]", True, WHITE)
+        minus_rect = minus_btn.get_rect(center=(center_x - button_spacing, y_pos))
+        screen.blit(minus_btn, minus_rect)
+        clickable_rects['time_decrease'] = pygame.Rect(center_x - button_spacing - 20, y_pos - 15, 40, 30)
+
+        time_value = text_font.render(f"{time_limit}s", True, YELLOW)
+        time_rect = time_value.get_rect(center=(center_x, y_pos))
+        screen.blit(time_value, time_rect)
+
+        plus_btn = small_font.render("[+]", True, WHITE)
+        plus_rect = plus_btn.get_rect(center=(center_x + button_spacing, y_pos))
+        screen.blit(plus_btn, plus_rect)
+        clickable_rects['time_increase'] = pygame.Rect(center_x + button_spacing - 20, y_pos - 15, 40, 30)
+
+        y_pos += 60
+    else:
+        timer_desc = tiny_font.render("Race against the clock", True, GRAY)
+        timer_desc_rect = timer_desc.get_rect(center=(center_x, y_pos))
+        screen.blit(timer_desc, timer_desc_rect)
+        y_pos += 50
+
     # Instructions
     y_pos += 20
     inst_text = small_font.render("Click on settings to toggle them", True, GRAY)
@@ -584,7 +625,9 @@ def show_menu():
         'fog_of_war': False,
         'energy_constraint': False,
         'fuel_limit': 100,
-        'ai_turn_frequency': 1  # AI moves after every X player moves
+        'ai_turn_frequency': 1,  # AI moves after every X player moves
+        'timer_enabled': False,  # Enable time limit
+        'time_limit': 60  # Time limit in seconds
     }
 
     # Create buttons
@@ -708,7 +751,9 @@ def show_menu():
                 energy_constraint = settings_state['energy_constraint']
                 fuel_limit = settings_state['fuel_limit']
                 ai_turn_frequency = settings_state['ai_turn_frequency']
-                return ("start", goal_placement, maze_mode, player_mode, fog_of_war, energy_constraint, fuel_limit, ai_turn_frequency)  # Start the game with settings
+                timer_enabled = settings_state['timer_enabled']
+                time_limit = settings_state['time_limit']
+                return ("start", goal_placement, maze_mode, player_mode, fog_of_war, energy_constraint, fuel_limit, ai_turn_frequency, timer_enabled, time_limit)  # Start the game with settings
 
         elif current_screen == "settings":
             # Draw settings screen
@@ -747,6 +792,17 @@ def show_menu():
                     settings_state['ai_turn_frequency'] = max(1, settings_state['ai_turn_frequency'] - 1)
                 elif 'ai_turn_increase' in option_rects and option_rects['ai_turn_increase'].collidepoint(mouse_pos):
                     settings_state['ai_turn_frequency'] = min(10, settings_state['ai_turn_frequency'] + 1)
+
+                # Timer toggle
+                if 'timer_enabled' in option_rects and option_rects['timer_enabled'].collidepoint(mouse_pos):
+                    settings_state['timer_enabled'] = not settings_state['timer_enabled']
+
+                # Time adjustment (only if timer is enabled)
+                if settings_state['timer_enabled']:
+                    if 'time_decrease' in option_rects and option_rects['time_decrease'].collidepoint(mouse_pos):
+                        settings_state['time_limit'] = max(10, settings_state['time_limit'] - 10)
+                    elif 'time_increase' in option_rects and option_rects['time_increase'].collidepoint(mouse_pos):
+                        settings_state['time_limit'] = min(600, settings_state['time_limit'] + 10)
 
             # Update and draw back button
             back_button.update(mouse_pos)
@@ -813,6 +869,8 @@ if __name__ == "__main__":
             energy_constraint = result[5] if len(result) > 5 else False
             fuel_limit = result[6] if len(result) > 6 else 100
             ai_turn_frequency = result[7] if len(result) > 7 else 1
+            timer_enabled = result[8] if len(result) > 8 else False
+            time_limit = result[9] if len(result) > 9 else 60
 
             # Start the appropriate game mode
             if player_mode == 'multi-agent':
@@ -823,8 +881,8 @@ if __name__ == "__main__":
                 # Algorithm comparison dashboard: visualize BFS, Dijkstra, A*
                 algo_comparison.start(goal_placement, maze_mode, fog_of_war, energy_constraint, fuel_limit)
             else:
-                # Solo or competitive mode (progressive levels in dynamic mode)
-                main.start(goal_placement, maze_mode, 5, player_mode, fog_of_war, energy_constraint, fuel_limit, ai_turn_frequency)
+                use_timer = timer_enabled if player_mode == 'competitive' or player_mode == 'solo' else False
+                main.start(goal_placement, maze_mode, 5, player_mode, fog_of_war, energy_constraint, fuel_limit, ai_turn_frequency, use_timer, time_limit)
 
             # Reinitialize pygame after game ends (pygame.quit() is called in main.py)
             reinitialize_pygame()

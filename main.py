@@ -306,7 +306,7 @@ def draw_maze(screen, maze, tile_size, all_checkpoints=None, collected_checkpoin
                 screen.blit(empty_sprite, rect)
 
 
-def draw_ui(screen, width, height, moves, total_cost, won, game_mode='explore', player=None, num_checkpoints=3, player_mode='solo', ai_agents=None, winner=None, fog_of_war=False, energy_constraint=False, fuel_limit=100, current_level=1, level_moves=0, player_collected_checkpoints=None, ai_collected_checkpoints=None):
+def draw_ui(screen, width, height, moves, total_cost, won, game_mode='explore', player=None, num_checkpoints=3, player_mode='solo', ai_agents=None, winner=None, fog_of_war=False, energy_constraint=False, fuel_limit=100, current_level=1, level_moves=0, player_collected_checkpoints=None, ai_collected_checkpoints=None, timer_enabled=False, time_remaining=0, time_limit=60):
     """Draw the UI elements on the right side of the screen."""
     font_title = pygame.font.Font(None, 48)
     font_text = pygame.font.Font(None, 32)
@@ -484,6 +484,29 @@ def draw_ui(screen, width, height, moves, total_cost, won, game_mode='explore', 
             energy_rect = energy_text.get_rect(centerx=ui_x_start + UI_WIDTH // 2, y=y_pos)
             screen.blit(energy_text, energy_rect)
 
+        # Timer display (if timer is enabled)
+        if timer_enabled:
+            y_pos += 70
+            timer_label = font_text.render("Time Remaining:", True, WHITE)
+            timer_label_rect = timer_label.get_rect(centerx=ui_x_start + UI_WIDTH // 2, y=y_pos)
+            screen.blit(timer_label, timer_label_rect)
+
+            y_pos += 45
+            # Color based on time remaining
+            time_percent = (time_remaining / time_limit) * 100 if time_limit > 0 else 0
+            if time_percent > 50:
+                timer_color = GREEN
+            elif time_percent > 25:
+                timer_color = YELLOW
+            else:
+                timer_color = RED
+
+            minutes = int(time_remaining // 60)
+            seconds = int(time_remaining % 60)
+            timer_text = font_title.render(f"{minutes}:{seconds:02d}", True, timer_color)
+            timer_rect = timer_text.get_rect(centerx=ui_x_start + UI_WIDTH // 2, y=y_pos)
+            screen.blit(timer_text, timer_rect)
+
         # Multi-goal mode specific UI
         if game_mode == 'multi-goal' and player:
             # Solo mode - show checkpoints in UI panel
@@ -630,7 +653,7 @@ def generate_progressive_maze(width, height, goal_placement, level):
     return maze
 
 
-def start(goal_placement='corner', game_mode='explore', num_checkpoints=5, player_mode='solo', fog_of_war=False, energy_constraint=False, fuel_limit=100, ai_turn_frequency=1):
+def start(goal_placement='corner', game_mode='explore', num_checkpoints=5, player_mode='solo', fog_of_war=False, energy_constraint=False, fuel_limit=100, ai_turn_frequency=1, timer_enabled=False, time_limit=60):
     """Start the game
 
     Args:
@@ -642,6 +665,8 @@ def start(goal_placement='corner', game_mode='explore', num_checkpoints=5, playe
         energy_constraint: Enable energy/fuel limit
         fuel_limit: Maximum fuel/energy available
         ai_turn_frequency: AI moves after every X player moves (competitive mode only)
+        timer_enabled: Enable time limit
+        time_limit: Time limit in seconds
     """
     # Generate maze (use progressive generation for dynamic mode starting at level 1)
     if game_mode == 'dynamic':
@@ -693,13 +718,13 @@ def start(goal_placement='corner', game_mode='explore', num_checkpoints=5, playe
     moves = 0
     won = False
 
-    loop(maze, player, input_controller, moves, won, goal_placement, game_mode, num_checkpoints, player_mode, ai_agents, fog_of_war, energy_constraint, fuel_limit, ai_turn_frequency)
+    loop(maze, player, input_controller, moves, won, goal_placement, game_mode, num_checkpoints, player_mode, ai_agents, fog_of_war, energy_constraint, fuel_limit, ai_turn_frequency, timer_enabled, time_limit)
     print("=" * 50)
     print("PYGAME STOPPED".center(50))
     print("=" * 50)
 
 
-def loop(maze, player, input_controller, moves, won, goal_placement, game_mode='explore', num_checkpoints=3, player_mode='solo', ai_agents=None, fog_of_war=False, energy_constraint=False, fuel_limit=100, ai_turn_frequency=1):
+def loop(maze, player, input_controller, moves, won, goal_placement, game_mode='explore', num_checkpoints=3, player_mode='solo', ai_agents=None, fog_of_war=False, energy_constraint=False, fuel_limit=100, ai_turn_frequency=1, timer_enabled=False, time_limit=60):
     """Main game loop"""
     run = True
     if ai_agents is None:
@@ -744,8 +769,27 @@ def loop(maze, player, input_controller, moves, won, goal_placement, game_mode='
     winner = None  # Track who won in competitive mode
     loser = None  # Track who lost (ran out of energy)
 
+    # Timer tracking
+    start_time = pygame.time.get_ticks() if timer_enabled else None
+    time_expired = False
+
     while run:
         clock.tick(60)  # 60 FPS
+
+        # Check timer
+        if timer_enabled and not won and not time_expired:
+            elapsed_time = (pygame.time.get_ticks() - start_time) / 1000  # Convert to seconds
+            if elapsed_time >= time_limit:
+                time_expired = True
+                won = True
+                if player_mode == 'competitive':
+                    winner = "AI Opponent"  # AI wins if time runs out
+                    print(f"\n⏰ Time's up! ⏰")
+                    print(f"AI Opponent wins!")
+                else:
+                    winner = None  # Solo mode - player just loses
+                    print(f"\n⏰ Time's up! ⏰")
+                    print(f"Game Over!")
 
         # Process AI animation queue (in competitive mode)
         if player_mode == 'competitive' and ai_animation_queue and not won:
@@ -789,7 +833,7 @@ def loop(maze, player, input_controller, moves, won, goal_placement, game_mode='
 
                     # Decrement moves remaining for this AI turn
                     ai_moves_remaining -= 1
-                    
+
                     # Remove AI from queue after completing all moves for this turn
                     if ai_moves_remaining <= 0 or current_ai.finished or current_ai.out_of_energy:
                         ai_animation_queue.pop(0)
@@ -936,9 +980,16 @@ def loop(maze, player, input_controller, moves, won, goal_placement, game_mode='
         # Draw player
         player.draw(screen)
 
+        # Calculate time remaining for display
+        if timer_enabled:
+            elapsed_time = (pygame.time.get_ticks() - start_time) / 1000
+            time_remaining = max(0, time_limit - elapsed_time)
+        else:
+            time_remaining = 0
+
         # Draw UI (pass appropriate moves count based on game mode)
         display_moves = total_moves if game_mode == 'dynamic' else moves
-        draw_ui(screen, TOTAL_WINDOW_WIDTH, TOTAL_WINDOW_HEIGHT, display_moves, player.total_cost, won, game_mode, player, num_checkpoints, player_mode, ai_agents, winner, fog_of_war, energy_constraint, fuel_limit, current_level, level_moves, player_collected_checkpoints, ai_collected_checkpoints)
+        draw_ui(screen, TOTAL_WINDOW_WIDTH, TOTAL_WINDOW_HEIGHT, display_moves, player.total_cost, won, game_mode, player, num_checkpoints, player_mode, ai_agents, winner, fog_of_war, energy_constraint, fuel_limit, current_level, level_moves, player_collected_checkpoints, ai_collected_checkpoints, timer_enabled, time_remaining, time_limit)
 
         # Handle events
         for event in pygame.event.get():
