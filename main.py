@@ -549,17 +549,6 @@ def draw_ui(screen, width, height, moves, total_cost, won, game_mode='explore', 
                 checkpoint_rect = checkpoint_text.get_rect(centerx=ui_x_start + UI_WIDTH // 2, y=y_pos)
                 screen.blit(checkpoint_text, checkpoint_rect)
 
-                # Exploration cost
-                y_pos += 70
-                explore_label = font_text.render("Exploration Cost:", True, WHITE)
-                explore_label_rect = explore_label.get_rect(centerx=ui_x_start + UI_WIDTH // 2, y=y_pos)
-                screen.blit(explore_label, explore_label_rect)
-
-                y_pos += 45
-                explore_text = font_title.render(str(player.exploration_cost), True, (100, 200, 255))
-                explore_rect = explore_text.get_rect(centerx=ui_x_start + UI_WIDTH // 2, y=y_pos)
-                screen.blit(explore_text, explore_rect)
-
         # Terrain legend
         y_pos += 90
 
@@ -1035,11 +1024,7 @@ def loop(maze, player, input_controller, moves, won, goal_placement, game_mode='
                         winner = "Player"
                         print(f"\n🎉 You won! 🎉")
                         print(f"Moves: {moves}")
-                        if game_mode == 'multi-goal':
-                            print(f"Final Cost: {player.total_cost}")
-                            print(f"Total Exploration Cost: {player.exploration_cost + player.total_cost}")
-                        else:
-                            print(f"Total Cost: {player.total_cost}\n")
+                        print(f"Total Cost: {player.total_cost}\n")
 
         # Fill background
         screen.fill(BLACK)
@@ -1229,11 +1214,7 @@ def loop(maze, player, input_controller, moves, won, goal_placement, game_mode='
                             winner = "Player"
                             print(f"\n🎉 You won! 🎉")
                             print(f"Moves: {moves}")
-                            if game_mode == 'multi-goal':
-                                print(f"Final Cost: {player.total_cost}")
-                                print(f"Total Exploration Cost: {player.exploration_cost + player.total_cost}")
-                            else:
-                                print(f"Total Cost: {player.total_cost}\n")
+                            print(f"Total Cost: {player.total_cost}\n")
 
             # Restart with new maze
             if event.type == pygame.KEYDOWN and event.key == pygame.K_r:
