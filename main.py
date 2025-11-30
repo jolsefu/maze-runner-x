@@ -874,7 +874,7 @@ def loop(maze, player, input_controller, moves, won, goal_placement, game_mode='
                             should_recalculate = True
                         elif not is_passable(current_ai.known_maze[next_tile]):
                             should_recalculate = True
-                    
+
                     if should_recalculate:
                         current_ai.calculate_path(maze, fog_of_war)
 
@@ -1258,6 +1258,11 @@ def loop(maze, player, input_controller, moves, won, goal_placement, game_mode='
                 winner = None
                 loser = None
                 ai_animation_queue = []
+
+                # Reset timer
+                if timer_enabled:
+                    start_time = pygame.time.get_ticks()
+                    time_expired = False
 
                 # Reset progressive level stats in dynamic mode
                 if game_mode == 'dynamic':
