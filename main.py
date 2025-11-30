@@ -369,8 +369,8 @@ def draw_ui(screen, width, height, moves, total_cost, won, game_mode='explore', 
         player_stats_rect = player_stats.get_rect(x=ui_x_start + 50, y=y_pos)
         screen.blit(player_stats, player_stats_rect)
 
-        # Checkpoint counter for player
-        if player_mode == "competitive" and player_collected_checkpoints is not None:
+        # Checkpoint counter for player (only in multi-goal mode)
+        if player_mode == "competitive" and game_mode == "multi-goal" and player_collected_checkpoints is not None:
             y_pos += 30
             player_cp_text = font_tiny.render(f"Checkpoints: {len(player_collected_checkpoints)}/{num_checkpoints}", True, BLUE)
             player_cp_rect = player_cp_text.get_rect(x=ui_x_start + 50, y=y_pos)
@@ -389,8 +389,8 @@ def draw_ui(screen, width, height, moves, total_cost, won, game_mode='explore', 
             ai_stats_rect = ai_stats.get_rect(x=ui_x_start + 50, y=y_pos)
             screen.blit(ai_stats, ai_stats_rect)
 
-            # Checkpoint counter for AI
-            if player_mode == "competitive" and ai_collected_checkpoints is not None:
+            # Checkpoint counter for AI (only in multi-goal mode)
+            if player_mode == "competitive" and game_mode == "multi-goal" and ai_collected_checkpoints is not None:
                 y_pos += 25
                 ai_cp_text = font_tiny.render(f"Checkpoints: {len(ai_collected_checkpoints)}/{num_checkpoints}", True, RED)
                 ai_cp_rect = ai_cp_text.get_rect(x=ui_x_start + 50, y=y_pos)
@@ -955,7 +955,25 @@ def loop(maze, player, input_controller, moves, won, goal_placement, game_mode='
                 if win_condition and winner is None and not player.out_of_energy:
                     # Dynamic mode: Progress to next level instead of ending
                     if game_mode == 'dynamic':
-                        print(f"✓ Level {current_level} completed! Moves: {level_moves}")
+                        # In competitive mode, show winner first
+                        if player_mode == 'competitive':
+                            won = True
+                            winner = "Player"
+                            print(f"\n🎉 Level {current_level} completed! Player wins! 🎉")
+                            print(f"Level Moves: {level_moves}")
+                            
+                            # Display winner screen briefly
+                            display_moves = total_moves if game_mode == 'dynamic' else moves
+                            draw_ui(screen, TOTAL_WINDOW_WIDTH, TOTAL_WINDOW_HEIGHT, display_moves, player.total_cost, won, game_mode, player, num_checkpoints, player_mode, ai_agents, winner, fog_of_war, energy_constraint, fuel_limit, current_level, level_moves, player_collected_checkpoints, ai_collected_checkpoints, timer_enabled, time_remaining, time_limit, loser)
+                            pygame.display.flip()
+                            pygame.time.wait(2000)  # Show winner for 2 seconds
+                            
+                            # Reset for next level
+                            won = False
+                            winner = None
+                        else:
+                            print(f"✓ Level {current_level} completed! Moves: {level_moves}")
+                        
                         current_level += 1
                         level_moves = 0
 
@@ -966,6 +984,19 @@ def loop(maze, player, input_controller, moves, won, goal_placement, game_mode='
                         # Reset player position but keep total stats
                         player.tile_x = start_x
                         player.tile_y = start_y
+
+                        # Reset AI position and state in competitive mode
+                        if player_mode == 'competitive':
+                            for ai in ai_agents:
+                                ai.tile_x = start_x
+                                ai.tile_y = start_y
+                                ai.finished = False
+                                ai.path = []
+                                ai.calculate_path(maze, fog_of_war)
+                            # Clear AI animation queue
+                            ai_animation_queue.clear()
+                            ai_moves_remaining = 0
+                            player_move_counter = 0
 
                         # Reset explored tiles for fog of war
                         if fog_of_war:
@@ -1118,7 +1149,25 @@ def loop(maze, player, input_controller, moves, won, goal_placement, game_mode='
                     if win_condition and winner is None and not player.out_of_energy:
                         # Dynamic mode: Progress to next level instead of ending
                         if game_mode == 'dynamic':
-                            print(f"✓ Level {current_level} completed! Moves: {level_moves}")
+                            # In competitive mode, show winner first
+                            if player_mode == 'competitive':
+                                won = True
+                                winner = "Player"
+                                print(f"\n🎉 Level {current_level} completed! Player wins! 🎉")
+                                print(f"Level Moves: {level_moves}")
+                                
+                                # Display winner screen briefly
+                                display_moves = total_moves if game_mode == 'dynamic' else moves
+                                draw_ui(screen, TOTAL_WINDOW_WIDTH, TOTAL_WINDOW_HEIGHT, display_moves, player.total_cost, won, game_mode, player, num_checkpoints, player_mode, ai_agents, winner, fog_of_war, energy_constraint, fuel_limit, current_level, level_moves, player_collected_checkpoints, ai_collected_checkpoints, timer_enabled, time_remaining, time_limit, loser)
+                                pygame.display.flip()
+                                pygame.time.wait(2000)  # Show winner for 2 seconds
+                                
+                                # Reset for next level
+                                won = False
+                                winner = None
+                            else:
+                                print(f"✓ Level {current_level} completed! Moves: {level_moves}")
+                            
                             current_level += 1
                             level_moves = 0
 
@@ -1129,6 +1178,19 @@ def loop(maze, player, input_controller, moves, won, goal_placement, game_mode='
                             # Reset player position but keep total stats
                             player.tile_x = start_x
                             player.tile_y = start_y
+
+                            # Reset AI position and state in competitive mode
+                            if player_mode == 'competitive':
+                                for ai in ai_agents:
+                                    ai.tile_x = start_x
+                                    ai.tile_y = start_y
+                                    ai.finished = False
+                                    ai.path = []
+                                    ai.calculate_path(maze, fog_of_war)
+                                # Clear AI animation queue
+                                ai_animation_queue.clear()
+                                ai_moves_remaining = 0
+                                player_move_counter = 0
 
                             # Reset explored tiles for fog of war
                             if fog_of_war:

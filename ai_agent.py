@@ -58,13 +58,6 @@ class AIAgent:
             maze: The full maze
             fog_of_war: If True, AI can only pathfind through explored tiles
         """
-    def calculate_path(self, maze, fog_of_war=False):
-        """Calculate path to goal using A* algorithm
-
-        Args:
-            maze: The full maze
-            fog_of_war: If True, AI can only pathfind through explored tiles
-        """
         # Update AI's vision first
         self.update_vision(maze, fog_of_war=fog_of_war)
 

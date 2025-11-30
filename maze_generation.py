@@ -66,7 +66,8 @@ class MazeGenerator:
         # Add different terrain types based on game mode
         if self.game_mode == 'dynamic':
             # For dynamic mode, add minimal terrain - obstacles appear during gameplay
-            self._add_minimal_terrain()
+            # self._add_minimal_terrain()
+            pass
         else:
             # For explore and multi-goal modes, add full terrain variety
             self._add_terrain_variety()
