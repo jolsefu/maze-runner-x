@@ -365,7 +365,10 @@ def draw_ui(screen, width, height, moves, total_cost, won, game_mode='explore', 
         screen.blit(player_label, player_label_rect)
 
         y_pos += 35
-        player_stats = font_small.render(f"Moves: {moves}  Cost: {total_cost}", True, WHITE)
+        if energy_constraint:
+            player_stats = font_small.render(f"Moves: {moves}  Energy: {total_cost}/{fuel_limit}", True, WHITE)
+        else:
+            player_stats = font_small.render(f"Moves: {moves}  Cost: {total_cost}", True, WHITE)
         player_stats_rect = player_stats.get_rect(x=ui_x_start + 50, y=y_pos)
         screen.blit(player_stats, player_stats_rect)
 
@@ -385,7 +388,10 @@ def draw_ui(screen, width, height, moves, total_cost, won, game_mode='explore', 
             screen.blit(ai_label, ai_label_rect)
 
             y_pos += 30
-            ai_stats = font_tiny.render(f"Moves: {ai.moves}  Cost: {ai.total_cost}", True, WHITE)
+            if energy_constraint:
+                ai_stats = font_tiny.render(f"Moves: {ai.moves}  Energy: {ai.total_cost}/{fuel_limit}", True, WHITE)
+            else:
+                ai_stats = font_tiny.render(f"Moves: {ai.moves}  Cost: {ai.total_cost}", True, WHITE)
             ai_stats_rect = ai_stats.get_rect(x=ui_x_start + 50, y=y_pos)
             screen.blit(ai_stats, ai_stats_rect)
 
