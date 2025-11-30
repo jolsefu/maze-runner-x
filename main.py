@@ -1247,6 +1247,17 @@ def loop(maze, player, input_controller, moves, won, goal_placement, game_mode='
                     level_moves = 0
                     total_moves = 0
 
+                # Reset checkpoint tracking for multi-goal mode
+                if game_mode == 'multi-goal':
+                    all_checkpoints.clear()
+                    player_collected_checkpoints.clear()
+                    ai_collected_checkpoints.clear()
+                    # Repopulate with new checkpoints from regenerated maze
+                    for y in range(len(maze)):
+                        for x in range(len(maze[0])):
+                            if maze[y][x] == TERRAIN_CHECKPOINT:
+                                all_checkpoints.add((x, y))
+
                 # Reset fog of war
                 if fog_of_war:
                     explored_tiles.clear()
