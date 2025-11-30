@@ -257,47 +257,47 @@ def find_start_position(maze):
 
 def verify_all_corners_reachable(maze, corners, goal_pos):
     """Verify that all corner positions have a valid path to the goal
-    
+
     Args:
         maze: The maze grid
         corners: List of (x, y) corner positions
         goal_pos: (x, y) position of the goal
-        
+
     Returns:
         True if all corners can reach the goal, False otherwise
     """
     from collections import deque
-    
+
     for corner_x, corner_y in corners:
         # BFS from this corner to goal
         queue = deque([(corner_x, corner_y)])
         visited = {(corner_x, corner_y)}
         found_goal = False
-        
+
         while queue:
             x, y = queue.popleft()
-            
+
             if (x, y) == goal_pos:
                 found_goal = True
                 break
-            
+
             # Check all 4 directions
             for dx, dy in [(0, 1), (1, 0), (0, -1), (-1, 0)]:
                 nx, ny = x + dx, y + dy
-                
+
                 if (0 <= nx < len(maze[0]) and
                     0 <= ny < len(maze) and
                     (nx, ny) not in visited):
-                    
+
                     terrain = maze[ny][nx]
                     # Can move through any terrain except walls and lava
                     if is_passable(terrain):
                         visited.add((nx, ny))
                         queue.append((nx, ny))
-        
+
         if not found_goal:
             return False  # This corner can't reach the goal
-    
+
     return True  # All corners can reach the goal
 
 
@@ -311,13 +311,13 @@ def generate_multi_agent_maze(width, height, game_mode='explore'):
     - All 4 corners have a valid path to the center goal
     """
     from maze_generation import MazeGenerator, TERRAIN_GRASS
-    
+
     max_attempts = 50  # Maximum attempts to generate a valid maze
     attempt = 0
-    
+
     while attempt < max_attempts:
         attempt += 1
-        
+
         # Generate base maze with center goal
         generator = MazeGenerator(width, height, 'center', game_mode, 0)
         maze = generator.generate()
@@ -333,7 +333,7 @@ def generate_multi_agent_maze(width, height, game_mode='explore'):
         for cx, cy in corners:
             # Set all corner tiles to GRASS for fair starting conditions
             maze[cy][cx] = TERRAIN_GRASS
-        
+
         # Find goal position
         goal_pos = None
         for y in range(len(maze)):
@@ -343,17 +343,17 @@ def generate_multi_agent_maze(width, height, game_mode='explore'):
                     break
             if goal_pos:
                 break
-        
+
         if not goal_pos:
             # Default to center if not found
             goal_pos = (width // 2, height // 2)
-        
+
         # Verify all corners can reach the goal
         if verify_all_corners_reachable(maze, corners, goal_pos):
             if attempt > 1:
                 print(f"Generated valid multi-agent maze after {attempt} attempts")
             return maze
-    
+
     # If we couldn't generate a valid maze after max_attempts, return the last one
     # and warn the user
     print(f"Warning: Could not generate maze with all corners reachable after {max_attempts} attempts")

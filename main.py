@@ -961,19 +961,19 @@ def loop(maze, player, input_controller, moves, won, goal_placement, game_mode='
                             winner = "Player"
                             print(f"\n🎉 Level {current_level} completed! Player wins! 🎉")
                             print(f"Level Moves: {level_moves}")
-                            
+
                             # Display winner screen briefly
                             display_moves = total_moves if game_mode == 'dynamic' else moves
                             draw_ui(screen, TOTAL_WINDOW_WIDTH, TOTAL_WINDOW_HEIGHT, display_moves, player.total_cost, won, game_mode, player, num_checkpoints, player_mode, ai_agents, winner, fog_of_war, energy_constraint, fuel_limit, current_level, level_moves, player_collected_checkpoints, ai_collected_checkpoints, timer_enabled, time_remaining, time_limit, loser)
                             pygame.display.flip()
                             pygame.time.wait(2000)  # Show winner for 2 seconds
-                            
+
                             # Reset for next level
                             won = False
                             winner = None
                         else:
                             print(f"✓ Level {current_level} completed! Moves: {level_moves}")
-                        
+
                         current_level += 1
                         level_moves = 0
 
@@ -1155,19 +1155,19 @@ def loop(maze, player, input_controller, moves, won, goal_placement, game_mode='
                                 winner = "Player"
                                 print(f"\n🎉 Level {current_level} completed! Player wins! 🎉")
                                 print(f"Level Moves: {level_moves}")
-                                
+
                                 # Display winner screen briefly
                                 display_moves = total_moves if game_mode == 'dynamic' else moves
                                 draw_ui(screen, TOTAL_WINDOW_WIDTH, TOTAL_WINDOW_HEIGHT, display_moves, player.total_cost, won, game_mode, player, num_checkpoints, player_mode, ai_agents, winner, fog_of_war, energy_constraint, fuel_limit, current_level, level_moves, player_collected_checkpoints, ai_collected_checkpoints, timer_enabled, time_remaining, time_limit, loser)
                                 pygame.display.flip()
                                 pygame.time.wait(2000)  # Show winner for 2 seconds
-                                
+
                                 # Reset for next level
                                 won = False
                                 winner = None
                             else:
                                 print(f"✓ Level {current_level} completed! Moves: {level_moves}")
-                            
+
                             current_level += 1
                             level_moves = 0
 
