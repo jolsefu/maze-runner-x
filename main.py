@@ -892,10 +892,9 @@ def loop(maze, player, input_controller, moves, won, goal_placement, game_mode='
                     # Check if AI ran out of energy
                     if energy_constraint and current_ai.out_of_energy and loser is None:
                         loser = current_ai.name
-                        winner = "Player"  # Player wins if AI runs out of energy
-                        won = True
                         print(f"\n⚡ {current_ai.name} ran out of energy! ⚡")
-                        print(f"Player wins!")
+                        # Don't set winner/won yet - player can continue playing
+                        # Game only ends when both are out of energy or player reaches goal/runs out
 
                     # Check if this AI won
                     if current_ai.finished and winner is None:
@@ -925,7 +924,7 @@ def loop(maze, player, input_controller, moves, won, goal_placement, game_mode='
                     ai_moves_remaining = player_move_counter  # AI gets same number of moves as player made
                     player_move_counter = 0  # Reset counter
                     for ai in ai_agents:
-                        if not ai.finished and ai not in ai_animation_queue:
+                        if not ai.finished and not ai.out_of_energy and ai not in ai_animation_queue:
                             # Just add to queue, path will be calculated when AI moves
                             ai_animation_queue.append(ai)
 
@@ -948,15 +947,27 @@ def loop(maze, player, input_controller, moves, won, goal_placement, game_mode='
                     print(f"✓ Checkpoint collected! ({player.checkpoints_collected}/{num_checkpoints})")
 
                 # Check if player ran out of energy
-                if energy_constraint and player.out_of_energy and loser is None:
-                    loser = "Player"
-                    won = True
-                    if player_mode == 'competitive':
-                        winner = "AI Opponent"  # AI wins if player runs out of energy
-                        print(f"\n⚡ You ran out of energy! ⚡")
-                        print(f"AI Opponent wins!")
-                    else:
+                if energy_constraint and player.out_of_energy:
+                    if loser is None:
+                        loser = "Player"
+                    if player_mode == 'competitive' and winner is None:
+                        # Check if AI also ran out of energy
+                        ai_also_out = all(ai.out_of_energy for ai in ai_agents)
+                        if ai_also_out:
+                            # Both out of energy - tie
+                            winner = "No one"
+                            won = True
+                            print(f"\n⚡ Both players ran out of energy! ⚡")
+                            print(f"It's a tie!")
+                        else:
+                            # Only player out - AI wins
+                            winner = "AI Opponent"
+                            won = True
+                            print(f"\n⚡ You ran out of energy! ⚡")
+                            print(f"AI Opponent wins!")
+                    elif player_mode == 'solo' and winner is None:
                         winner = None  # Solo mode - player just loses
+                        won = True
                         print(f"\n⚡ You ran out of energy! ⚡")
                         print(f"Game Over!")
 
@@ -1116,15 +1127,13 @@ def loop(maze, player, input_controller, moves, won, goal_placement, game_mode='
                         moves += 1
 
                     # After player moves in competitive mode, queue AI moves based on turn frequency
-                    if player_mode == 'competitive' and player_move_counter >= ai_turn_frequency:
-                        ai_moves_remaining = player_move_counter  # AI gets same number of moves as player made
-                        player_move_counter = 0  # Reset counter
-                        for ai in ai_agents:
-                            if not ai.finished and ai not in ai_animation_queue:
-                                # Just add to queue, path will be calculated when AI moves
-                                ai_animation_queue.append(ai)
-
-                    # Multi-goal mode: Check if landed on checkpoint
+                if player_mode == 'competitive' and player_move_counter >= ai_turn_frequency:
+                    ai_moves_remaining = player_move_counter  # AI gets same number of moves as player made
+                    player_move_counter = 0  # Reset counter
+                    for ai in ai_agents:
+                        if not ai.finished and not ai.out_of_energy and ai not in ai_animation_queue:
+                            # Just add to queue, path will be calculated when AI moves
+                            ai_animation_queue.append(ai)                    # Multi-goal mode: Check if landed on checkpoint
                     if game_mode == 'multi-goal' and maze[player.tile_y][player.tile_x] == TERRAIN_CHECKPOINT:
                         player.checkpoints_collected += 1
                         # Don't reset cost - keep accumulating
@@ -1136,15 +1145,27 @@ def loop(maze, player, input_controller, moves, won, goal_placement, game_mode='
                         print(f"✓ Checkpoint collected! ({player.checkpoints_collected}/{num_checkpoints})")
 
                     # Check if player ran out of energy
-                    if energy_constraint and player.out_of_energy and loser is None:
-                        loser = "Player"
-                        won = True
-                        if player_mode == 'competitive':
-                            winner = "AI Opponent"  # AI wins if player runs out of energy
-                            print(f"\n⚡ You ran out of energy! ⚡")
-                            print(f"AI Opponent wins!")
-                        else:
+                    if energy_constraint and player.out_of_energy:
+                        if loser is None:
+                            loser = "Player"
+                        if player_mode == 'competitive' and winner is None:
+                            # Check if AI also ran out of energy
+                            ai_also_out = all(ai.out_of_energy for ai in ai_agents)
+                            if ai_also_out:
+                                # Both out of energy - tie
+                                winner = "No one"
+                                won = True
+                                print(f"\n⚡ Both players ran out of energy! ⚡")
+                                print(f"It's a tie!")
+                            else:
+                                # Only player out - AI wins
+                                winner = "AI Opponent"
+                                won = True
+                                print(f"\n⚡ You ran out of energy! ⚡")
+                                print(f"AI Opponent wins!")
+                        elif player_mode == 'solo' and winner is None:
                             winner = None  # Solo mode - player just loses
+                            won = True
                             print(f"\n⚡ You ran out of energy! ⚡")
                             if game_mode == 'dynamic':
                                 print(f"Reached Level {current_level}")
