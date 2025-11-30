@@ -863,8 +863,20 @@ def loop(maze, player, input_controller, moves, won, goal_placement, game_mode='
                 if ai_animation_queue:
                     current_ai = ai_animation_queue[0]
 
-                    # Recalculate path before each move (works with dynamic obstacles and fog of war)
-                    current_ai.calculate_path(maze, fog_of_war)
+                    # Only recalculate path if needed (empty, blocked, or checkpoint collected)
+                    should_recalculate = False
+                    if not current_ai.path:
+                        should_recalculate = True
+                    elif fog_of_war:
+                        # Check if next tile in path is still valid (not blocked/unexplored)
+                        next_tile = current_ai.path[0]
+                        if next_tile not in current_ai.known_maze:
+                            should_recalculate = True
+                        elif not is_passable(current_ai.known_maze[next_tile]):
+                            should_recalculate = True
+                    
+                    if should_recalculate:
+                        current_ai.calculate_path(maze, fog_of_war)
 
                     # Track AI position before move (for checkpoint detection)
                     ai_prev_checkpoints = current_ai.checkpoints_collected
@@ -872,9 +884,15 @@ def loop(maze, player, input_controller, moves, won, goal_placement, game_mode='
                     # Make one move
                     moved = current_ai.make_move(maze)
 
+                    # Update AI vision after moving (for fog of war)
+                    if fog_of_war and moved:
+                        current_ai.update_vision(maze, fog_of_war=fog_of_war)
+
                     # Check if AI collected a checkpoint this move (in multi-goal mode)
                     if game_mode == 'multi-goal' and current_ai.checkpoints_collected > ai_prev_checkpoints:
                         ai_collected_checkpoints.add((current_ai.tile_x, current_ai.tile_y))
+                        # Recalculate path since target changed (new checkpoint or goal)
+                        current_ai.calculate_path(maze, fog_of_war)
 
                     # Check if AI ran out of energy
                     if energy_constraint and current_ai.out_of_energy and loser is None:
